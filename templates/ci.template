@@ -1,0 +1,258 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: CI Application
+Parameters:
+  pProduct:
+    Type: String
+  pRegion:
+    Type: String
+  pEnvironment:
+    Type: String
+  pRegionAZ1Name:
+    Type: String
+  pRegionAZ2Name:
+    Type: String
+  pMgtCIDR:
+    Type: String
+  pMgtVpcid:
+    Type: String
+  pMgtRouteTableApub:
+    Type: String
+  pMgtRouteTableBpub:
+    Type: String
+  pMgtRouteTableApri:
+    Type: String
+  pMgtRouteTableBpri:
+    Type: String
+  pRouteTableApub: 
+    Type: String
+  pRouteTableBpub: 
+    Type: String
+  pRouteTableApri: 
+    Type: String 
+  pRouteTableBpri:
+    Type: String
+  pVPCTenancy:
+    Type: String
+  pEC2KeyPair:
+    Type: String
+  pEC2KeyPairBastion:
+    Type: String
+  QuickStartS3URL:
+    Type: String
+  QSS3BucketName:
+    Type: String
+  QuickStartS3URL:
+    Type: String
+  QSS3KeyPrefix:
+    Type: String
+  pVpcid:
+    Type: String
+  pVpcCIDR:
+    Type: String
+  pSubnetApub001CIDR:
+    Type: String
+    Default: ''
+  pSubnetApub002CIDR:
+    Type: String
+    Default: ''
+  pSubnetApri001CIDR:
+    Type: String
+    Default: ''
+  pSubnetApri002CIDR:
+    Type: String
+    Default: ''
+  pSubnetApri003CIDR:
+    Type: String
+    Default: ''
+  pSubnetBpub001CIDR:
+    Type: String
+    Default: ''
+  pSubnetBpub002CIDR:
+    Type: String
+    Default: ''
+  pSubnetBpri001CIDR:
+    Type: String
+    Default: ''
+  pSubnetBpri002CIDR:
+    Type: String
+    Default: ''
+  pSubnetBpri003CIDR:
+    Type: String
+    Default: ''
+  pSubnetApub001: 
+    Type: String
+    Default: ''
+  pSubnetApub002: 
+    Type: String
+    Default: ''
+  pSubnetApri001: 
+    Type: String
+    Default: ''
+  pSubnetApri002: 
+    Type: String
+    Default: ''
+  pSubnetApri003: 
+    Type: String
+    Default: ''
+  pSubnetBpub001: 
+    Type: String
+    Default: ''
+  pSubnetBpub002: 
+    Type: String
+    Default: ''
+  pSubnetBpri001: 
+    Type: String
+    Default: ''
+  pSubnetBpri002: 
+    Type: String
+    Default: ''
+  pSubnetBpri003: 
+    Type: String
+    Default: ''
+  pSecurityGroupDefault:
+    Type: String
+Conditions:
+  IsGovCloud: !Equals [ !Ref 'AWS::Region', us-gov-west-1 ]
+  # SupportsGlacier: !Equals [ !Ref pSupportsGlacier, true ]
+  Disable: !Equals [ "1", "0" ]
+  Enable: !Equals [ "0", "0" ]
+Resources:
+  sgEc2Acct:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, acct ] ]
+      VpcId: !Ref pVpcid
+      Tags: 
+        - Key: Name
+          Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, ec2, acct ] ]
+  sgEc2Adm:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, adm ] ]
+      VpcId: !Ref pVpcid
+      Tags: 
+        - Key: Name
+          Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, ec2, adm ] ]
+  sgEc2App:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, app ] ]
+      VpcId: !Ref pVpcid
+      Tags: 
+        - Key: Name
+          Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, ec2, app ] ]
+  sgEc2Bog:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, bog ] ]
+      VpcId: !Ref pVpcid
+      Tags: 
+        - Key: Name
+          Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, ec2, bog ] ]
+  sgEc2Db:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, db ] ]
+      VpcId: !Ref pVpcid
+      Tags: 
+        - Key: Name
+          Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, ec2, db ] ]
+  sgEc2Idp:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, idp ] ]
+      VpcId: !Ref pVpcid
+      Tags: 
+        - Key: Name
+          Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, ec2, idp ] ]
+  sgEc2Intl:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, intl ] ]
+      VpcId: !Ref pVpcid
+      Tags: 
+        - Key: Name
+          Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, ec2, intl ] ]
+  sgEc2Salt:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, salt ] ]
+      VpcId: !Ref pVpcid
+      Tags: 
+        - Key: Name
+          Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, ec2, salt ] ]
+          
+############################
+# Example app tier SG-ELB -> SG
+  # rELBAPP:
+    # Type: "AWS::ElasticLoadBalancing::LoadBalancer"
+    # Properties:
+      # Listeners:
+      # - LoadBalancerPort: '443'
+        # InstancePort: '443'
+        # Cannot enable HTTPS without a cert
+        # Protocol: HTTPS
+        # Protocol: TCP
+      # Subnets:  
+      # - Ref: pSubnetBpub002
+      # SecurityGroups:
+      # - Ref: rSgElbApp          
+      # HealthCheck:
+      #   Target: 'HTTPS:443//app-db1.cccnext.net'
+      #   HealthyThreshold: '3'
+      #   UnhealthyThreshold: '5'
+      #   Interval: '30'
+      #   Timeout: '5'
+  # rSgElbApp:
+    # Type: "AWS::EC2::SecurityGroup"
+    # Properties: 
+      # GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, elb ] ]
+      # Tags: 
+      # - Key: Name
+      #   Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, elb, adm ] ]
+      # SecurityGroupIngress:
+      # Cannot enable HTTPS without a cert
+      # - IpProtocol: HTTPS
+      # - IpProtocol: TCP
+      #   FromPort: '443'
+      #   ToPort: '443'  
+      #   CidrIp: 0.0.0.0/0 
+      # VpcId: !Ref pVpcid
+  # rSgEc2App:
+    # Type: "AWS::EC2::SecurityGroup"
+    # Properties: 
+      # GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, app ] ]
+      # Tags: 
+        # - Key: Name
+          # Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, ec2, app ] ]
+      # VpcId: !Ref pVpcid
+      # SecurityGroupIngress:
+        # - IpProtocol: TCP
+          # FromPort: '443'
+          # ToPort: '443'
+          # SourceSecurityGroupId: !Ref rSgElbApp # !sgEc2ELB
+        # - IpProtocol: TCP
+          # FromPort: '22'
+          # ToPort: '22'
+          # SourceSecurityGroupId: !Ref rSgElbApp #sgEc2Adm
+        # - IpProtocol: HTTPS
+        # - IpProtocol: TCP
+          # FromPort: '443'
+          # ToPort: '443'
+         #  SourceSecurityGroupId: !Ref rSgElbApp # sgEc2ELB
+        # - IpProtocol: TCP
+          # FromPort: '22'
+          # ToPort: '22'
+          # CidrIp: !Ref pMgtCIDR
+        # Diabled until resource added back to template
+        #- IpProtocol: TCP
+        #  FromPort: '32768'
+        #  ToPort: '61000'
+        #  SourceSecurityGroupId: !Ref sgEc2Db
+Outputs:
+  pStackName:
+    Value: !Ref AWS::StackName
+  Help:
+    Description: For assistance or questions regarding this template please email tpotter@infiniticg.com
+    Value: ''

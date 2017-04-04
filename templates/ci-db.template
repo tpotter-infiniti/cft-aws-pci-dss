@@ -1,0 +1,161 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: CI Application
+Parameters:
+  pProduct:
+    Type: String
+  pRegion:
+    Type: String
+  pEnvironment:
+    Type: String
+  pRegionAZ1Name:
+    Type: String
+  pRegionAZ2Name:
+    Type: String
+  pMgtCIDR:
+    Type: String
+  pMgtVpcid:
+    Type: String
+  pMgtRouteTableApub:
+    Type: String
+  pMgtRouteTableBpub:
+    Type: String
+  pMgtRouteTableApri:
+    Type: String
+  pMgtRouteTableBpri:
+    Type: String
+  pRouteTableApub: 
+    Type: String
+  pRouteTableBpub: 
+    Type: String
+  pRouteTableApri: 
+    Type: String 
+  pRouteTableBpri:
+    Type: String
+  pVPCTenancy:
+    Type: String
+  pEC2KeyPair:
+    Type: String
+  pEC2KeyPairBastion:
+    Type: String
+  QuickStartS3URL:
+    Type: String
+  QSS3BucketName:
+    Type: String
+  QuickStartS3URL:
+    Type: String
+  QSS3KeyPrefix:
+    Type: String
+  pVpcid:
+    Type: String
+  pVpcCIDR:
+    Type: String
+  pSubnetApub001CIDR:
+    Type: String
+    Default: ''
+  pSubnetApub002CIDR:
+    Type: String
+    Default: ''
+  pSubnetApri001CIDR:
+    Type: String
+    Default: ''
+  pSubnetApri002CIDR:
+    Type: String
+    Default: ''
+  pSubnetApri003CIDR:
+    Type: String
+    Default: ''
+  pSubnetBpub001CIDR:
+    Type: String
+    Default: ''
+  pSubnetBpub002CIDR:
+    Type: String
+    Default: ''
+  pSubnetBpri001CIDR:
+    Type: String
+    Default: ''
+  pSubnetBpri002CIDR:
+    Type: String
+    Default: ''
+  pSubnetBpri003CIDR:
+    Type: String
+    Default: ''
+  pSubnetApub001: 
+    Type: String
+    Default: ''
+  pSubnetApub002: 
+    Type: String
+    Default: ''
+  pSubnetApri001: 
+    Type: String
+    Default: ''
+  pSubnetApri002: 
+    Type: String
+    Default: ''
+  pSubnetApri003: 
+    Type: String
+    Default: ''
+  pSubnetBpub001: 
+    Type: String
+    Default: ''
+  pSubnetBpub002: 
+    Type: String
+    Default: ''
+  pSubnetBpri001: 
+    Type: String
+    Default: ''
+  pSubnetBpri002: 
+    Type: String
+    Default: ''
+  pSubnetBpri003: 
+    Type: String
+    Default: ''
+  pSecurityGroupDefault:
+    Type: String
+Conditions:
+  IsGovCloud: !Equals [ !Ref 'AWS::Region', us-gov-west-1 ]
+  # SupportsGlacier: !Equals [ !Ref pSupportsGlacier, true ]
+  Disable: !Equals [ "1", "0" ]
+  Enable: !Equals [ "0", "0" ]
+Resources:
+# BEGIN Add 2 subnets
+  rSubnetApri004:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock:  10.20.18.32/27
+      AvailabilityZone: !Ref pRegionAZ2Name
+      VpcId: !Ref pVpcid
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "sn-a-pri-004" ]]
+        - Key: Environment
+          Value: !Ref pEnvironment 
+  rSubnetBpri004:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.20.18.96/27
+      AvailabilityZone: !Ref pRegionAZ2Name
+      VpcId: !Ref pVpcid
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "sn-b-pri-004" ]]
+        - Key: Environment
+          Value: !Ref pEnvironment
+  rRouteTableAssocApri004:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref rSubnetApri004
+      RouteTableId: !Ref pRouteTableApri
+  rRouteTableAssocBpri004:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref rSubnetBpri004
+      RouteTableId: !Ref pRouteTableBpri
+# END Add 2 subnets  
+
+Outputs:
+  pStackName:
+    Value: !Ref AWS::StackName
+  Help:
+    Description: For assistance or questions regarding this template please email tpotter@infiniticg.com
+    Value: ''

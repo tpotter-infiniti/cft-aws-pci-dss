@@ -1,0 +1,646 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: CI Application
+Parameters:
+  pProduct:
+    Type: String
+  pRegion:
+    Type: String
+  pEnvironment:
+    Type: String
+  pRegionAZ1Name:
+    Type: String
+  pRegionAZ2Name:
+    Type: String
+  pMgtCIDR:
+    Type: String
+  pMgtVpcid:
+    Type: String
+  pMgtRouteTableApub:
+    Type: String
+  pMgtRouteTableBpub:
+    Type: String
+  pMgtRouteTableApri:
+    Type: String
+  pMgtRouteTableBpri:
+    Type: String
+  pVPCTenancy:
+    Type: String
+  pEC2KeyPair:
+    Type: String
+  pEC2KeyPairBastion:
+    Type: String
+  QuickStartS3URL:
+    Type: String
+  QSS3BucketName:
+    Type: String
+  QuickStartS3URL:
+    Type: String
+  QSS3KeyPrefix:
+    Type: String
+  pVpcid:
+    Type: String
+  pVpcCIDR:
+    Type: String
+  pSubnetApub001CIDR:
+    Type: String
+  pSubnetApub002CIDR:
+    Type: String
+  pSubnetApri001CIDR:
+    Type: String
+  pSubnetApri002CIDR:
+    Type: String
+  pSubnetApri003CIDR:
+    Type: String
+  pSubnetBpub001CIDR:
+    Type: String
+  pSubnetBpub002CIDR:
+    Type: String
+  pSubnetBpri001CIDR:
+    Type: String
+  pSubnetBpri002CIDR:
+    Type: String
+  pSubnetBpri003CIDR:
+    Type: String
+  pSecurityGroupDefault:
+    Type: String
+  SubnetPub2b:
+    Description: CIDR block for Public subnet in AZ 2b
+    Type: String
+    Default: 'subnet-13e74d5a'
+  MgtCIDR:
+    Description: CIDR block for Public subnet in AZ 2b
+    Type: String
+    Default: '10.206.32.0/23'
+  Ec2ADM1:
+    Description: aminstration instance adm1.ci.cccnext.net
+    Type: String
+    Default: 'i-066cbfa8c5b6b1967'
+
+Resources:
+  ELBADM:
+    Type: "AWS::ElasticLoadBalancing::LoadBalancer"
+    Properties:
+      Listeners:
+        - LoadBalancerPort: '443'
+          InstancePort: '443'
+          Protocol: tcp
+        - LoadBalancerPort: '80'
+          InstancePort: '80'
+          Protocol: tcp
+        - LoadBalancerPort: '8443'
+          InstancePort: '8443'
+          Protocol: tcp
+      Subnets:  
+      - Ref: SubnetPub2b
+      Instances:
+      - Ref: Ec2ADM1
+      SecurityGroups:
+      - Ref: sgADMELB          
+      HealthCheck:
+        Target: HTTP:80/
+        HealthyThreshold: '3'
+        UnhealthyThreshold: '5'
+        Interval: '30'
+        Timeout: '5'
+  sgADMELB:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: admin elb security group
+      Tags: 
+      - Key: Name
+        Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, elb, adm] ]
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '443'
+        ToPort: '443'  
+        CidrIp: 0.0.0.0/0  
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'  
+        CidrIp: 0.0.0.0/0 
+      VpcId: !Ref pVpcid 
+  sgACCTELB:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: acct elb security group
+      Tags: 
+      - Key: Name
+        Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, elb, acct] ]
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '443'
+        ToPort: '443'  
+        CidrIp: 0.0.0.0/0  
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'  
+        CidrIp: 0.0.0.0/0 
+      VpcId: !Ref pVpcid
+  sgJasperELB:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: jasper elb security group
+      Tags: 
+      - Key: Name
+        Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, elb, jasper] ]
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '443'
+        ToPort: '443'  
+        CidrIp: 0.0.0.0/0  
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'  
+        CidrIp: 0.0.0.0/0 
+      VpcId: !Ref pVpcid
+  sgBOGELB:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: bog elb security group
+      Tags: 
+      - Key: Name
+        Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, elb, bog] ]
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '443'
+        ToPort: '443'  
+        CidrIp: 0.0.0.0/0  
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'  
+        CidrIp: 0.0.0.0/0 
+      VpcId: !Ref pVpcid
+  sgINTLELB:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: intl elb security group
+      Tags: 
+      - Key: Name
+        Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, elb, intl] ]
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '443'
+        ToPort: '443'  
+        CidrIp: 0.0.0.0/0  
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'  
+        CidrIp: 0.0.0.0/0 
+      VpcId: !Ref pVpcid     
+  sgIDPELB:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: idp elb security group
+      Tags: 
+      - Key: Name
+        Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, elb, idp] ]
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '443'
+        ToPort: '443'  
+        CidrIp: 0.0.0.0/0  
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'  
+        CidrIp: 0.0.0.0/0 
+      VpcId: !Ref pVpcid 
+  sgAPPELB:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: intl elb security group
+      Tags: 
+      - Key: Name
+        Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, elb, app] ]
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '443'
+        ToPort: '443'  
+        CidrIp: 0.0.0.0/0  
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'  
+        CidrIp: 0.0.0.0/0 
+      VpcId: !Ref pVpcid 
+
+  sgEc2Bastion:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, acct ] ]
+      Tags: 
+      - Key: Name
+        Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, ec2, acct] ]
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'  
+        CidrIp: 10.206.32.0/23
+      VpcId: !Ref pVpcid
+
+  sgEc2Acct:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, acct ] ]
+      Tags: 
+        - Key: Name
+          Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, ec2, acct ] ]
+      VpcId: !Ref pVpcid
+  sgEc2AcctIngressHttps:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '443'
+      GroupId: !Ref sgEc2Acct
+      IpProtocol: tcp
+      ToPort: '443'
+      SourceSecurityGroupId: !Ref sgACCTELB
+  sgEc2AcctIngressSSH2:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '22'
+      GroupId: !Ref sgEc2Acct
+      IpProtocol: tcp
+      ToPort: '22'
+      SourceSecurityGroupId: !Ref sgEc2Adm          
+  sgEc2AcctIngressCustom:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '32768'
+      GroupId: !Ref sgEc2Acct
+      IpProtocol: tcp
+      ToPort: '61000'
+      SourceSecurityGroupId: !Ref sgEc2Db 
+  sgEc2Adm:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, adm ] ]
+      Tags: 
+        - Key: Name
+          Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, ec2, adm ] ]
+      VpcId: !Ref pVpcid
+  sgEc2AdmIngressHttps:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '443'
+      GroupId: !Ref sgEc2Adm
+      IpProtocol: tcp
+      ToPort: '443'
+      SourceSecurityGroupId: !Ref sgADMELB
+  sgEc2AdmIngressHttp:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '80'
+      GroupId: !Ref sgEc2Adm
+      IpProtocol: tcp
+      ToPort: '80'
+      SourceSecurityGroupId: !Ref sgADMELB
+  sgEc2AdmIngressSSH2:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '22'
+      GroupId: !Ref sgEc2Adm
+      IpProtocol: tcp
+      ToPort: '22'
+      SourceSecurityGroupId: !Ref sgEc2Adm                       
+  sgEc2AdmIngressCustom:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '32768'
+      GroupId: !Ref sgEc2Adm
+      IpProtocol: tcp
+      ToPort: '61000'
+      SourceSecurityGroupId: !Ref sgEc2Db             
+  sgEc2App:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, app ] ]
+      Tags: 
+        - Key: Name
+          Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, ec2, app ] ]
+      VpcId: !Ref pVpcid
+  sgEc2AppIngressHttps:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '443'
+      GroupId: !Ref sgEc2App
+      IpProtocol: tcp
+      ToPort: '443'
+      SourceSecurityGroupId: !Ref sgAPPELB
+  sgEc2AppIngressHttp:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '80'
+      GroupId: !Ref sgEc2App
+      IpProtocol: tcp
+      ToPort: '80'
+      SourceSecurityGroupId: !Ref sgAPPELB
+  sgEc2AppIngressSSH2:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '22'
+      GroupId: !Ref sgEc2App
+      IpProtocol: tcp
+      ToPort: '22'
+      SourceSecurityGroupId: !Ref sgEc2Adm                  
+  sgEc2AppIngressCustom:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '32768'
+      GroupId: !Ref sgEc2App
+      IpProtocol: tcp
+      ToPort: '61000'
+      SourceSecurityGroupId: !Ref sgEc2Db   
+  sgEc2Bog:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, bog ] ]
+      Tags: 
+        - Key: Name
+          Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, ec2, bog ] ]
+      VpcId: !Ref pVpcid
+  sgEc2BogIngressHttps:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '443'
+      GroupId: !Ref sgEc2Bog
+      IpProtocol: tcp
+      ToPort: '443'
+      SourceSecurityGroupId: !Ref sgBOGELB
+  sgEc2BogIngretcpttp:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '80'
+      GroupId: !Ref sgEc2Bog
+      IpProtocol: tcp
+      ToPort: '80'
+      SourceSecurityGroupId: !Ref sgBOGELB
+  sgEc2BogIngresstcp2:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '22'
+      GroupId: !Ref sgEc2Bog
+      IpProtocol: tcp
+      ToPort: '22'
+      SourceSecurityGroupId: !Ref sgEc2Adm                 
+  sgEc2BogIngressCustom:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '32768'
+      GroupId: !Ref sgEc2Bog
+      IpProtocol: tcp
+      ToPort: '61000'
+      SourceSecurityGroupId: !Ref sgEc2Db 
+  sgEc2Db:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, db ] ]
+      Tags: 
+        - Key: Name
+          Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, ec2, db ] ]
+      VpcId: !Ref pVpcid
+  sgEc2DbIngressSSH2:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '22'
+      GroupId: !Ref sgEc2Db
+      IpProtocol: tcp
+      ToPort: '22'
+      SourceSecurityGroupId: !Ref sgEc2Adm
+  sgEc2DbIngressAcct:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '5432'
+      GroupId: !Ref sgEc2Db
+      IpProtocol: tcp
+      ToPort: '5432'
+      SourceSecurityGroupId: !Ref sgEc2Acct
+  sgEc2DbIngressAdm:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '5432'
+      GroupId: !Ref sgEc2Db
+      IpProtocol: tcp
+      ToPort: '5432'
+      SourceSecurityGroupId: !Ref sgEc2Adm 
+  sgEc2DbIngressApp:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '5432'
+      GroupId: !Ref sgEc2Db
+      IpProtocol: tcp
+      ToPort: '5432'
+      SourceSecurityGroupId: !Ref sgEc2App           
+  sgEc2DbIngressBog:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '5432'
+      GroupId: !Ref sgEc2Db
+      IpProtocol: tcp
+      ToPort: '5432'
+      SourceSecurityGroupId: !Ref sgEc2Bog
+  sgEc2DbIngressIdp:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '5432'
+      GroupId: !Ref sgEc2Db
+      IpProtocol: tcp
+      ToPort: '5432'
+      SourceSecurityGroupId: !Ref sgEc2Idp
+  sgEc2DbIngressIntl:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '5432'
+      GroupId: !Ref sgEc2Db
+      IpProtocol: tcp
+      ToPort: '5432'
+      SourceSecurityGroupId: !Ref sgEc2Intl
+  sgEc2Idp:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, idp ] ]
+      Tags: 
+        - Key: Name
+          Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, ec2, idp ] ]
+      VpcId: !Ref pVpcid
+  sgEc2IdpIngressHttps:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '443'
+      GroupId: !Ref sgEc2Idp
+      IpProtocol: tcp
+      ToPort: '443'
+      SourceSecurityGroupId: !Ref sgIDPELB
+  sgEc2IdpIngressHttp:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '80'
+      GroupId: !Ref sgEc2Idp
+      IpProtocol: tcp
+      ToPort: '80'
+      SourceSecurityGroupId: !Ref sgIDPELB
+  sgEc2IdpIngressSSH2:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '22'
+      GroupId: !Ref sgEc2Idp
+      IpProtocol: tcp
+      ToPort: '22'
+      SourceSecurityGroupId: !Ref sgEc2Adm                   
+  sgEc2IdpIngressCustom:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '32768'
+      GroupId: !Ref sgEc2Idp
+      IpProtocol: tcp
+      ToPort: '61000'
+      SourceSecurityGroupId: !Ref sgEc2Db  
+  sgEc2Intl:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, intl ] ]
+      Tags: 
+        - Key: Name
+          Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, ec2, intl ] ]
+      VpcId: !Ref pVpcid 
+  sgEc2IntlIngressHttps:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '443'
+      GroupId: !Ref sgEc2Intl
+      IpProtocol: tcp
+      ToPort: '443'
+      SourceSecurityGroupId: !Ref sgINTLELB
+  sgEc2IntlIngressHttp:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '80'
+      GroupId: !Ref sgEc2Intl
+      IpProtocol: tcp
+      ToPort: '80'
+      SourceSecurityGroupId: !Ref sgINTLELB
+  sgEc2IntlIngressSSH2:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '22'
+      GroupId: !Ref sgEc2Intl
+      IpProtocol: tcp
+      ToPort: '22'
+      SourceSecurityGroupId: !Ref sgEc2Adm   
+  sgEc2IntlIngressCustom:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '32768'
+      GroupId: !Ref sgEc2Intl
+      IpProtocol: tcp
+      ToPort: '61000'
+      SourceSecurityGroupId: !Ref sgEc2Db  
+  sgEc2Jasper:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, jasper ] ]
+      Tags: 
+        - Key: Name
+          Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, ec2, jasper ] ]
+      VpcId: !Ref pVpcid 
+  sgEc2JasperIngressHttps:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '443'
+      GroupId: !Ref sgEc2Jasper
+      IpProtocol: tcp
+      ToPort: '443'
+      SourceSecurityGroupId: !Ref sgJasperELB
+  sgEc2JasperIngressHttp:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '80'
+      GroupId: !Ref sgEc2Jasper
+      IpProtocol: tcp
+      ToPort: '80'
+      SourceSecurityGroupId: !Ref sgJasperELB
+  sgEc2JasperIngressSSH2:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '22'
+      GroupId: !Ref sgEc2Jasper
+      IpProtocol: tcp
+      ToPort: '22'
+      SourceSecurityGroupId: !Ref sgEc2Adm                    
+  sgEc2JasperIngressCustom:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '32768'
+      GroupId: !Ref sgEc2Jasper
+      IpProtocol: tcp
+      ToPort: '61000'
+      SourceSecurityGroupId: !Ref sgEc2Db 
+  sgEc2Salt:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, salt ] ]
+      Tags: 
+        - Key: Name
+          Value: !Join [ -, [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, ec2, salt ] ]
+      VpcId: !Ref pVpcid
+  sgEc2SaltIngressSSH2:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '22'
+      GroupId: !Ref sgEc2Salt
+      IpProtocol: tcp
+      ToPort: '22'
+      SourceSecurityGroupId: !Ref sgEc2Adm
+  sgEc2SaltIngressAcct:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '4505'
+      GroupId: !Ref sgEc2Salt
+      IpProtocol: tcp
+      ToPort: '4506'
+      SourceSecurityGroupId: !Ref sgEc2Acct
+  sgEc2SaltIngressAdm:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '4505'
+      GroupId: !Ref sgEc2Salt
+      IpProtocol: tcp
+      ToPort: '4506'
+      SourceSecurityGroupId: !Ref sgEc2Adm 
+  sgEc2SaltIngressApp:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '4505'
+      GroupId: !Ref sgEc2Salt
+      IpProtocol: tcp
+      ToPort: '4506'
+      SourceSecurityGroupId: !Ref sgEc2App           
+  sgEc2SaltIngressBog:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '4505'
+      GroupId: !Ref sgEc2Salt
+      IpProtocol: tcp
+      ToPort: '4506'
+      SourceSecurityGroupId: !Ref sgEc2Bog
+  sgEc2SaltIngressIdp:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '4505'
+      GroupId: !Ref sgEc2Salt
+      IpProtocol: tcp
+      ToPort: '4506'
+      SourceSecurityGroupId: !Ref sgEc2Idp
+  sgEc2SaltIngressIntl:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties: 
+      FromPort: '4505'
+      GroupId: !Ref sgEc2Salt
+      IpProtocol: tcp
+      ToPort: '4506'
+      SourceSecurityGroupId: !Ref sgEc2Intl
+
+Outputs:
+  pStackName:
+    Value: !Ref AWS::StackName
+  Help:
+    Description: For assistance or questions regarding this template please email tpotter@infiniticg.com
+    Value: ''

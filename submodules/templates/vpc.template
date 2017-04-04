@@ -1,0 +1,1077 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: VPC, Internal DNS, remote access
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Region Config
+        Parameters:
+        - pRegionAZ1Name
+        - pRegionAZ2Name
+      - Label:
+          default: Management VPC Configuration
+        Parameters:
+        # - pManagementVPCName
+        - pManagementCIDR
+        - pManagementDMZSubnetACIDR
+        - pManagementDMZSubnetBCIDR
+        - pVPCTenancy
+      - Label:
+          default: AWS Quick Start Configuration
+        Parameters:
+        - QuickStartS3URL
+        - QSS3BucketName
+        - QSS3KeyPrefix
+      - Label:
+          default: Optional Components - Bastion
+        Parameters:
+        - pCreateBastionHost
+        - pEC2KeyPairBastion
+        - pBastionInstanceType
+        - pBastionAmi
+        - pBastionSSHCIDR
+    ParameterLabels:
+      # pManagementVPCName:
+      # default: Name of Management VPC to create
+      pManagementCIDR:
+        default: CIDR block of Management VPC
+      pManagementDMZSubnetACIDR:
+        default: CIDR block of Management DMZ SubnetA
+      pManagementDMZSubnetBCIDR:
+        default: CIDR block of Management DMZ SubnetB
+      pVPCTenancy:
+        default: Instance tenancy
+      QuickStartS3URL:
+        default: Quick Start URL
+      QSS3BucketName:
+        default: Quick Start S3 Bucket Name
+      QSS3KeyPrefix:
+        default: Quick Start S3 Key Prefix
+      pCreateBastionHost:
+        default: Create Bastion Host
+      pEC2KeyPairBastion:
+        default: Bastion KeyPair
+      pBastionInstanceType:
+        default: Bastion Instance Type
+      pBastionAmi:
+        default: Bastion AMI
+      pBastionSSHCIDR:
+        default: Bastion SSH CIDR
+  Stack:
+    Value: 2
+  VersionDate:
+    Value: 20160510
+  Identifier:
+    Value: template-vpc-management
+  Input:
+     Description: CIDR blocks, VPC names, KeyName, EC2 instance size
+  Output:
+     Description: Outputs ID of all deployed resources
+Parameters:
+  pProduct:
+    Description: Product or application name
+    Type: String
+    Default: 'none'
+  pRegion:
+    Description: IATA abbreviation for region
+    Default: 'none'
+    Type: String
+  pRegionAZ1Name:
+    Description: Availability Zone 1 Name in Region
+    Type: String
+    Default: us-east-1b
+  pRegionAZ2Name:
+    Description: Availability Zone 2 Name in Region
+    Type: String
+    Default: us-west-1c
+  pVPCprimary:
+    Type: String
+    Default: 'n'
+  pVpcCIDR:
+    Description: CIDR block for Production VPC
+    Type: String
+  pVpcSgDebug:
+    Type: String
+    Default: 'no'
+# SUBNET A CIDRS
+  pSubnetApub001CIDR:
+    Description: CIDR block for Public AZ A-001 subnet
+    Type: String
+    Default: ''
+  pSubnetApub002CIDR:
+    Description: CIDR block for Public AZ A-002 subnet
+    Type: String
+    Default: ''
+  pSubnetApri001CIDR:
+    Description: CIDR block for Private AZ A-001 subnet
+    Type: String
+    Default: ''
+  pSubnetApri002CIDR:
+    Description: CIDR block for Private AZ A-002 subnet
+    Type: String
+    Default: ''
+  pSubnetApri003CIDR:
+    Description: CIDR block for Private AZ A-003 subnet
+    Type: String
+    Default: ''
+  # Placeholders for subnet ids
+  pSubnetApub001:
+    Type: String
+    Default: ''
+  pSubnetApub002:
+    Type: String
+    Default: ''
+  pSubnetApri001:
+    Type: String
+    Default: ''
+  pSubnetApri002:
+    Type: String
+    Default: ''
+  pSubnetApri003:
+    Type: String
+    Default: ''
+# SUBNET B CIDRS
+  pSubnetBpub001CIDR:
+    Description: CIDR block for Public AZ B-001 subnet
+    Type: String
+    Default: ''
+  pSubnetBpub002CIDR:
+    Description: CIDR block for Public AZ B-002 subnet
+    Type: String
+    Default: ''
+  pSubnetBpri001CIDR:
+    Description: CIDR block for Private AZ B-001 subnet
+    Type: String
+    Default: ''
+  pSubnetBpri002CIDR:
+    Description: CIDR block for Private AZ B-002 subnet
+    Type: String
+    Default: ''
+  pSubnetBpri003CIDR:
+    Description: CIDR block for Private AZ B-003 subnet
+    Type: String
+    Default: ''
+  # Placeholders for subnet ids
+  pSubnetBpub001CIDR:
+    Type: String
+    Default: ''
+  pSubnetBpub002CIDR:
+    Type: String
+    Default: ''
+  pSubnetBpri001CIDR:
+    Type: String
+    Default: ''
+  pSubnetBpri002CIDR:
+    Type: String
+    Default: ''
+  pSubnetBpri003CIDR:
+    Type: String
+    Default: ''  
+  pCreateBastionHost:
+    Description: Should a Bastion host be created inside the DMZ Subnet(s)?
+    Type: String
+    Default: false
+    AllowedValues:
+    - true
+    - false
+  pRouteTableProdPrivate:
+    Description: Route Table ID for Prod VPC Private
+    Type: String
+    Default: ""
+  pRouteTableProdPublic:
+    Description: Route Table ID for Prod VPC Public
+    Type: String
+    Default: ""
+  pEC2KeyPairBastion:
+    Description: Name of existing EC2 key pair for BASTION hosts
+    Type: String
+    Default: ""
+  pBastionInstanceType:
+    Description: Bastion EC2 instance type
+    Type: String
+    Default: t2.small
+  pManagementCIDR:
+    Description: CIDR block for Management VPC
+    Type: String
+    Default: ''
+  pMgtVpcid:
+    Description: Primary VPC ID
+    Type: String
+    Default: none
+  pManagementDMZSubnetACIDR:
+    Description: CIDR block for Management AZ-1a subnet
+    Type: String
+    Default: none
+  pManagementDMZSubnetBCIDR:
+    Description: CIDR block for Management AZ-1b subnet
+    Type: String
+    Default: none
+  pManagementPrivateSubnetACIDR:
+    Description: CIDR block for Management AZ-1a subnet
+    Type: String
+    Default: none
+  pManagementPrivateSubnetBCIDR:
+    Description: CIDR block for Management AZ-1b subnet
+    Type: String
+    Default: none
+  pMgtRouteTableApri:
+    Description: Management route table AZ 1 Private
+    Type: String
+    Default: none
+  pMgtRouteTableBpri:
+    Description: Management route table AZ 1 Public
+    Type: String
+    Default: none
+  pMgtRouteTableApub:
+    Description: Management route table AZ 1 Public
+    Type: String
+    Default: none
+  pMgtRouteTableBpub:
+    Description: Management route table AZ 1 Public
+    Type: String
+    Default: none
+  pVPCTenancy:
+    Description: Instance tenancy behavior for this VPC
+    Type: String
+    Default: default
+    AllowedValues:
+    - default
+    - dedicated
+  pBastionSSHCIDR:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: The CIDR Allowed SSH access to the bastion host
+  pBastionAmi:
+    Description: AMI to use for bastion host
+    Type: String
+    Default: ""
+  pEC2KeyPair:
+    Description: Name of existing EC2 key pair for production hosts
+    Type: String
+    Default: ""
+  pEnvironment:
+    Description: Environment (development, test, or production)
+    Type: String
+    Default: development
+  pSupportsNatGateway:
+    Description: Specifies whether this region supports NAT Gateway (this value is determined by the main stack if it is invoked from there)
+    Type: String
+    Default: true
+  pNatInstanceType:
+    Description: Instance type to use for the NAT intstance if the region does not support NAT Gateway (this value is determined by the main stack if it is invoked from there)
+    Type: String
+    Default: ""
+  pNatAmi:
+    Description: AMI to use for the NAT intstance if the region does not support NAT Gateway (this value is determined by the main stack if it is invoked from there)
+    Type: String
+    Default: ""
+  pFlowLogGroup:
+    Description: Log Group for capturing VPC Flow Logs
+    Type: String
+    Default: ""
+  QuickStartS3URL:
+    Description: Quick Start S3 URL prefix.
+    Default: https://s3.amazonaws.com
+    Type: String
+  QSS3BucketName:
+    AllowedPattern: ^[0-9a-zA-Z]+([0-9a-zA-Z\-\.]*[0-9a-zA-Z])*$
+    ConstraintDescription: Quick Start bucket name can include numbers, lowercase
+      letters, uppercase letters, periods (.), and hyphens (-). It cannot start or end with a hyphen
+      (-).
+    Default: quickstart-reference
+    Description: S3 bucket name for the Quick Start assets. Quick Start bucket name
+      can include numbers, lowercase letters, uppercase letters, periods (.), and hyphens (-).
+      It cannot start or end with a hyphen (-).
+    Type: String
+  QSS3KeyPrefix:
+    AllowedPattern: ^[0-9a-zA-Z-]+(/[0-9a-zA-Z-]+)*$
+    ConstraintDescription: Quick Start key prefix can include numbers, lowercase letters,
+      uppercase letters, hyphens (-), and forward slash (/). It cannot start or end
+      with forward slash (/) because they are automatically appended.
+    Default: none
+    Description: S3 key prefix for the Quick Start assets. Quick Start key prefix
+      can include numbers, lowercase letters, uppercase letters, hyphens (-), and
+      forward slash (/). It cannot start or end with forward slash (/) because they
+      are automatically appended.
+    Type: String
+Conditions:
+  cDisable: !Equals [ "1", "0" ]
+  cEnable: !Equals [ "0", "0" ]
+  cCreateBastionHost: !Equals [ true, !Ref pVPCprimary ]
+  cNeedNatInstance: !Equals [ false, !Ref pSupportsNatGateway ]
+  cSupportsNatGateway: !Equals [ true, !Ref pSupportsNatGateway ]
+  cEnableFlowLogs: !Not [ !Equals [ !Ref pFlowLogGroup, '' ] ]
+  cIsPrimaryVPC: !Equals [ !Ref pVPCprimary, 'y' ]
+  cIsNotPrimaryVPC: !Not [!Equals [ 'y', !Ref pVPCprimary ] ]
+  cVpcSgDebug: !Equals [ !Ref pVpcSgDebug, 'yes' ]
+# Make all subnets except A-pub-001 optional
+  cSubnetApub001: !Not [ !Equals [ !Ref pSubnetApub001CIDR, '' ] ] 
+  cSubnetApub002: !Not [ !Equals [ !Ref pSubnetApub002CIDR, '' ] ]  
+  cSubnetApri001: !Not [ !Equals [ !Ref pSubnetApri001CIDR, '' ] ]
+  cSubnetApri002: !Not [ !Equals [ !Ref pSubnetApri002CIDR, '' ] ]
+  cSubnetApri003: !Not [ !Equals [ !Ref pSubnetApri003CIDR, '' ] ]
+  cSubnetBpub001: !Not [ !Equals [ !Ref pSubnetBpub001CIDR, '' ] ]
+  cSubnetBpub002: !Not [ !Equals [ !Ref pSubnetBpub002CIDR, '' ] ]
+  cSubnetBpri001: !Not [ !Equals [ !Ref pSubnetBpri001CIDR, '' ] ]
+  cSubnetBpri002: !Not [ !Equals [ !Ref pSubnetBpri002CIDR, '' ] ]
+  cSubnetBpri003: !Not [ !Equals [ !Ref pSubnetBpri003CIDR, '' ] ]
+Resources:
+  rVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref pVpcCIDR
+      InstanceTenancy: !Ref pVPCTenancy
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "vpc" ]]
+      - Key: Environment
+        Value: !Ref pEnvironment
+  rVPCDhcpOptions: 
+    Type: "AWS::EC2::DHCPOptions"
+    Properties: 
+      DomainName: !Join [ ".", [ !Ref pEnvironment, !Ref pRegion,!Ref pProduct, int. ] ]
+      DomainNameServers: 
+        - AmazonProvidedDNS
+      Tags: 
+      - Key: Name
+        Value: !Join [ ".", [ !Ref pEnvironment, !Ref pRegion,!Ref pProduct, int. ] ]
+  rVPCDhcpOptionsAssociation:
+    Type: AWS::EC2::VPCDHCPOptionsAssociation
+    Properties:
+      VpcId:
+        Ref: rVPC
+      DhcpOptionsId:
+        Ref: rVPCDhcpOptions
+  r53Internal:
+    Type: "AWS::Route53::HostedZone"
+    Properties: 
+      Name:  !Join [ ".", [ !Ref pEnvironment, !Ref pRegion,!Ref pProduct, int. ] ]
+      VPCs: 
+        - VPCId: !Ref rVPC
+          VPCRegion: !Ref "AWS::Region"
+  rSecurityGroupDefault:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: default VPC security group
+      VpcId: !Ref rVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref pManagementCIDR
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "sg-default" ]]
+        - Key: Environment
+          Value: !Ref pEnvironment
+  rSecurityGroupDefaultIngressDebug:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: cVpcSgDebug
+    Properties:
+      GroupId:
+        Ref: rSecurityGroupDefault
+      IpProtocol: tcp
+      FromPort: '0'
+      ToPort: '65535'
+      SourceSecurityGroupId:
+        Ref: rSecurityGroupDefault
+  rSecurityGroupVpcNat:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow NAT from Management VPC
+      VpcId: !Ref rVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref pManagementCIDR
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref pManagementCIDR
+      Tags:
+        - Key: Name
+          Value: sg-web-access-ports-from-production
+        - Key: Environment
+          Value: !Ref pEnvironment
+    # Change to SG Ingress and add to default no mgt
+  rSecurityGroupSSHFromMgmt:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      VpcId: !Ref rVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref pManagementCIDR
+      Tags:
+        - Key: Name
+          Value: sg-ssh-access-from-management
+        - Key: Environment
+          Value: !Ref pEnvironment
+  rSecurityGroupBastion:
+    Type: AWS::EC2::SecurityGroup
+    Condition: cIsPrimaryVPC
+    Properties:
+      GroupDescription: SG for Bastion Instances
+      VpcId: !Ref rVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref pBastionSSHCIDR
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 1
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "sg-bastion" ]]
+        - Key: Environment
+          Value: !Ref pEnvironment
+# Subnets AZ 1
+  rSubnetApub001:
+    Type: AWS::EC2::Subnet
+    Condition: cSubnetApub001
+    Properties:
+      CidrBlock: !Ref pSubnetApub001CIDR
+      AvailabilityZone: !Ref pRegionAZ1Name
+      VpcId: !Ref rVPC
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "sn-a-pub-001" ]]
+        - Key: Environment
+          Value: !Ref pEnvironment
+  rSubnetApub002:
+        Condition: cSubnetApub002
+        Type: AWS::EC2::Subnet
+        Properties:
+            CidrBlock: !Ref pSubnetApub002CIDR
+            AvailabilityZone: !Ref pRegionAZ1Name
+            VpcId: !Ref rVPC
+            Tags:
+              - Key: Name
+                Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "sn-a-pub-002" ]]
+              - Key: Environment
+                Value: !Ref pEnvironment
+  rSubnetApri001:
+    Condition: cSubnetApri001
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !Ref pSubnetApri001CIDR
+      AvailabilityZone: !Ref pRegionAZ1Name
+      VpcId: !Ref rVPC
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "sn-a-pri-001" ]]
+        - Key: Environment
+          Value: !Ref pEnvironment
+  rSubnetApri002:
+    Condition: cSubnetApri002
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !Ref pSubnetApri002CIDR
+      AvailabilityZone: !Ref pRegionAZ1Name
+      VpcId: !Ref rVPC
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "sn-a-pri-002" ]]
+        - Key: Environment
+          Value: !Ref pEnvironment
+  rSubnetApri003:
+    Condition: cSubnetApri003
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !Ref pSubnetApri003CIDR
+      AvailabilityZone: !Ref pRegionAZ1Name
+      VpcId: !Ref rVPC
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "sn-a-pri-003" ]]
+        - Key: Environment
+          Value: !Ref pEnvironment
+# Subnets AZ 2                
+  rSubnetBpub001:
+    Condition: cSubnetBpub001
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !Ref pSubnetBpub001CIDR
+      AvailabilityZone: !Ref pRegionAZ2Name
+      VpcId: !Ref rVPC
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "sn-b-pub-001" ]]
+        - Key: Environment
+          Value: !Ref pEnvironment
+  rSubnetBpub002:
+    Condition: cSubnetBpub002
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !Ref pSubnetBpub002CIDR
+      AvailabilityZone: !Ref pRegionAZ2Name
+      VpcId: !Ref rVPC
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "sn-b-pub-002" ]]
+        - Key: Environment
+          Value: !Ref pEnvironment
+  rSubnetBpri001:
+    Condition: cSubnetBpri001
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !Ref pSubnetBpri001CIDR
+      AvailabilityZone: !Ref pRegionAZ2Name
+      VpcId: !Ref rVPC
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "sn-b-pri-001" ]]
+        - Key: Environment
+          Value: !Ref pEnvironment
+  rSubnetBpri002:
+    Condition: cSubnetBpri002
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !Ref pSubnetBpri002CIDR
+      AvailabilityZone: !Ref pRegionAZ2Name
+      VpcId: !Ref rVPC
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "sn-b-pri-002" ]]
+        - Key: Environment
+          Value: !Ref pEnvironment
+  rSubnetBpri003:
+    Condition: cSubnetBpri003
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !Ref pSubnetBpri003CIDR
+      AvailabilityZone: !Ref pRegionAZ2Name
+      VpcId: !Ref rVPC
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "sn-b-pri-003" ]]
+        - Key: Environment
+          Value: !Ref pEnvironment 
+  rIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "igw" ]]
+  rIGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref rVPC
+      InternetGatewayId: !Ref rIGW
+  rRouteTablePrivateA:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref rVPC
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "rt-a-pri" ]]
+  rRouteTablePrivateB:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref rVPC
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "rt-b-pri" ]]
+  rRouteTablePublicA:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref rVPC
+      Tags:
+         - Key: Name
+           Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "rt-a-pub" ]]
+  rRouteTablePublicB:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref rVPC
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "rt-b-pub" ]]
+# Associate subnets with route tables
+  rRouteTableAssocApub001:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: cSubnetApub001
+    Properties:
+      SubnetId: !Ref rSubnetApub001
+      RouteTableId: !Ref rRouteTablePublicA
+  rRouteTableAssocApub002:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: cSubnetApub002
+    Properties:
+      SubnetId: !Ref rSubnetApub002
+      RouteTableId: !Ref rRouteTablePublicA
+  rRouteTableAssocApri001:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: cSubnetApri001
+    Properties:
+      SubnetId: !Ref rSubnetApri001
+      RouteTableId: !Ref rRouteTablePrivateA      
+  rRouteTableAssocApri002:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: cSubnetApri002
+    Properties:
+      SubnetId: !Ref rSubnetApri002
+      RouteTableId: !Ref rRouteTablePrivateA
+  rRouteTableAssocApri003:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: cSubnetApri003
+    Properties:
+      SubnetId: !Ref rSubnetApri003
+      RouteTableId: !Ref rRouteTablePrivateA
+# AZ 2/B
+  rRouteTableAssocBpub001:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: cSubnetBpub001
+    Properties:
+      SubnetId: !Ref rSubnetBpub001
+      RouteTableId: !Ref rRouteTablePublicB
+  rRouteTableAssocBpub002:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: cSubnetBpub002
+    Properties:
+      SubnetId: !Ref rSubnetBpub002
+      RouteTableId: !Ref rRouteTablePublicB
+  rRouteTableAssocBpri001:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: cSubnetBpri001
+    Properties:
+      SubnetId: !Ref rSubnetBpri001
+      RouteTableId: !Ref rRouteTablePrivateB
+  rRouteTableAssocBpri002:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: cSubnetBpri002
+    Properties:
+      SubnetId: !Ref rSubnetBpri002
+      RouteTableId: !Ref rRouteTablePrivateB
+  rRouteTableAssocBpri003:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: cSubnetBpri003
+    Properties:
+      SubnetId: !Ref rSubnetBpri003
+      RouteTableId: !Ref rRouteTablePrivateB
+# Add NGW route to private subnets
+  rRouteNatGWa:
+    Condition: cSupportsNatGateway
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref rRouteTablePrivateA
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref rNatGatewayA
+  rRouteNatGWb:
+    Condition: cSupportsNatGateway
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref rRouteTablePrivateB
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref rNatGatewayB
+# Public routes
+  rRouteIGWa:
+    DependsOn: rIGW
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref rRouteTablePublicA
+      GatewayId: !Ref rIGW
+      DestinationCidrBlock: 0.0.0.0/0
+  rRouteIGWb:
+    DependsOn: rIGW
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref rRouteTablePublicB
+      GatewayId: !Ref rIGW
+      DestinationCidrBlock: 0.0.0.0/0
+# Peering routes
+  rRoutePeerMgmtPublicA:
+    Condition: cIsNotPrimaryVPC
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref rRouteTablePublicA
+      VpcPeeringConnectionId: !Ref rPeeringConnectionManagement
+      DestinationCidrBlock: !Ref pManagementCIDR
+  rRoutePeerMgmtPublicB:
+    Condition: cIsNotPrimaryVPC
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref rRouteTablePublicB
+      VpcPeeringConnectionId: !Ref rPeeringConnectionManagement
+      DestinationCidrBlock: !Ref pManagementCIDR
+  rRoutePeerMgmtPrivateA:
+    Condition: cIsNotPrimaryVPC
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref rRouteTablePrivateA
+      VpcPeeringConnectionId: !Ref rPeeringConnectionManagement
+      DestinationCidrBlock: !Ref pManagementCIDR
+  rRoutePeerMgmtPrivateB:
+    Condition: cIsNotPrimaryVPC
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref rRouteTablePrivateB
+      VpcPeeringConnectionId: !Ref rPeeringConnectionManagement
+      DestinationCidrBlock: !Ref pManagementCIDR  
+# Add peering routes in Mgt VPC
+  rRouteMgmtPublicAToPeer:
+    Condition: cIsNotPrimaryVPC
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref pMgtRouteTableApub
+      VpcPeeringConnectionId: !Ref rPeeringConnectionManagement
+      DestinationCidrBlock: !Ref pVpcCIDR
+  rRouteMgmtPublicBToPeer:
+    Condition: cIsNotPrimaryVPC
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref pMgtRouteTableBpub
+      VpcPeeringConnectionId: !Ref rPeeringConnectionManagement
+      DestinationCidrBlock: !Ref pVpcCIDR
+  rRouteMgmtPrivateAToPeer:
+    Condition: cIsNotPrimaryVPC
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref pMgtRouteTableApri
+      VpcPeeringConnectionId: !Ref rPeeringConnectionManagement
+      DestinationCidrBlock: !Ref pVpcCIDR
+  rRouteMgmtPrivateBToPeer:
+    Condition: cIsNotPrimaryVPC
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref pMgtRouteTableBpri
+      VpcPeeringConnectionId: !Ref rPeeringConnectionManagement
+      DestinationCidrBlock: !Ref pVpcCIDR
+  rEipNat:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  rEipNatAssociater:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt rEipNat.AllocationId
+      NetworkInterfaceId: !Ref rENInatInstanceInterface
+  rENInatInstanceInterface:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SubnetId: !Ref rSubnetApub001
+      GroupSet:
+        - !Ref rSecurityGroupSSHFromMgmt
+        - !Ref rSecurityGroupVpcNat
+      Description: Interface for Nat device
+      Tags:
+        - Key: Network
+          Value: rENInatInstanceInterface
+  rENIBastion:
+    Condition: cIsPrimaryVPC
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SubnetId: !Ref rSubnetApub001
+      GroupSet:
+       - !Ref rSecurityGroupBastion
+      Description: Interface for Bastion device
+      Tags:
+        - Key: Network
+          Value: MgmtBastionDevice
+  rEIPProdNATa:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  rEIPProdNATb:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  rNatGatewayA:
+    Type: AWS::EC2::NatGateway
+    Condition: cSupportsNatGateway
+    DependsOn: rIGW
+    Properties:
+      AllocationId: !GetAtt rEIPProdNATa.AllocationId
+      SubnetId: !Ref rSubnetApub001
+  rNatGatewayB:
+    Type: AWS::EC2::NatGateway
+    Condition: cSupportsNatGateway
+    DependsOn: rIGW
+    Properties:
+      AllocationId: !GetAtt rEIPProdNATb.AllocationId
+      SubnetId: !Ref rSubnetBpub001
+  rNatInstanceTemplateA:
+    Type: AWS::CloudFormation::Stack
+    Condition: cNeedNatInstance
+    Properties:
+      TemplateURL: !Sub ${QuickStartS3URL}/${QSS3BucketName}/${QSS3KeyPrefix}/submodules/templates/nat-instance.template
+      TimeoutInMinutes: 20
+      Parameters:
+        pDMZSubnetA: !Ref rSubnetApub001
+        pSecurityGroupSSHFromVpc: !Ref rSecurityGroupSSHFromMgmt
+        pSecurityGroupVpcNat: !Ref rSecurityGroupVpcNat
+        pNatInstanceType: !Ref pNatInstanceType
+        pNatAmi: !Ref pNatAmi
+        pEC2KeyPair: !Ref pEC2KeyPair
+        pVpcId: !Ref rVPC
+        pVpcName: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "a-ngw" ]]
+        pRouteTablePrivate: !Ref rRouteTablePrivateA
+        pEipNatAllocationId: !GetAtt rEIPProdNATa.AllocationId
+  rNatInstanceTemplateB:
+    Type: AWS::CloudFormation::Stack
+    Condition: cNeedNatInstance
+    Properties:
+      TemplateURL: !Sub ${QuickStartS3URL}/${QSS3BucketName}/${QSS3KeyPrefix}/submodules/templates/nat-instance.template
+      TimeoutInMinutes: 20
+      Parameters:
+        pDMZSubnetB: !Ref rSubnetApub001
+        pSecurityGroupSSHFromVpc: !Ref rSecurityGroupSSHFromMgmt
+        pSecurityGroupVpcNat: !Ref rSecurityGroupVpcNat
+        pNatInstanceType: !Ref pNatInstanceType
+        pNatAmi: !Ref pNatAmi
+        pEC2KeyPair: !Ref pEC2KeyPair
+        pVpcId: !Ref rVPC
+        pVpcName: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "b-ngw" ]]
+        pRouteTablePrivate: !Ref rRouteTablePrivateB
+        pEipNatAllocationId: !GetAtt rEIPProdNATb.AllocationId    
+  rPeeringConnectionManagement:
+    Type: AWS::EC2::VPCPeeringConnection
+    Condition: cIsNotPrimaryVPC
+    Properties:
+      PeerVpcId: !Ref pMgtVpcid
+      VpcId: !Ref rVPC
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, peer, !Ref pEnvironment , to, mgt ] ]
+        - Key: Environment
+          Value: !Ref pEnvironment
+  rIamFlowLogsServiceRole:
+    Type: "AWS::IAM::Role"
+    Condition: cEnableFlowLogs
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Statement: 
+          - Action: "sts:AssumeRole"
+            Effect: Allow
+            Principal: 
+              Service: vpc-flow-logs.amazonaws.com
+            Sid: AllowFlowLogs
+        Version: 2012-10-17
+      Path: /
+      Policies: 
+        - 
+          PolicyDocument: 
+            Statement: 
+              - 
+                Action: 
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "logs:DescribeLogGroups"
+                  - "logs:DescribeLogStreams"
+                Effect: Allow
+                Resource: "*"
+            Version: 2012-10-17
+          PolicyName: cloudwatchlogsrole
+      RoleName: !Join [ "-", [ !Ref pProduct, !Ref pRegion, peer, !Ref pEnvironment, "iam-flowlogs" ] ]
+  rVpcFlowLogs:
+    Condition: cEnableFlowLogs
+    Type: AWS::EC2::FlowLog
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt rIamFlowLogsServiceRole.Arn
+      LogGroupName: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, 'flowlogs' ] ]
+      ResourceId: !Ref rVPC
+      ResourceType: VPC
+      TrafficType: ALL
+  rVpcFlowLogsStream:
+    Condition: cEnableFlowLogs
+    Type: AWS::Logs::LogStream
+    Properties:
+      LogGroupName: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, 'flowlogs' ] ]
+  rMgmtBastionInstance:
+    Type: AWS::EC2::Instance
+    Condition: cIsPrimaryVPC
+    Properties:
+      InstanceType: !Ref pBastionInstanceType
+      KeyName: !Ref pEC2KeyPairBastion
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, "a-bsn-001" ]]
+        - Key: ZONE
+          Value: !Join [ ".", [ !Ref pEnvironment, !Ref pRegion, !Ref pProduct, 'int.' ] ]
+        - Key: CNAME
+          Value: !Join [ ".", [ bsn001a, !Ref pEnvironment, !Ref pRegion, !Ref pProduct, 'int.' ] ]            
+      ImageId: !Ref pBastionAmi
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref rENIBastion
+          DeviceIndex: 0
+      UserData: !Base64 |
+        #!/bin/bash
+        yum update -y
+  rEIPBastion:
+    Type: AWS::EC2::EIP
+    Condition: cIsPrimaryVPC
+    DependsOn: rMgmtBastionInstance
+    Properties:
+      Domain: vpc
+  rEIPBastionAssociate:
+    Type: AWS::EC2::EIPAssociation
+    Condition: cIsPrimaryVPC
+    DependsOn: rEIPBastion
+    Properties:
+      AllocationId: !GetAtt rEIPBastion.AllocationId
+      NetworkInterfaceId: !Ref rENIBastion
+# Internal DNS
+  ddnslambdarole:
+    Type: "AWS::IAM::Role"
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Statement: 
+          - 
+            Action: "sts:AssumeRole"
+            Effect: Allow
+            Principal: 
+              Service: lambda.amazonaws.com
+            Sid: ""
+        Version: "2012-10-17"
+      Policies: 
+        - 
+          PolicyDocument: 
+            Statement: 
+              - 
+                Action: "ec2:Describe*"
+                Effect: Allow
+                Resource: "*"
+              - 
+                Action: 
+                  - "dynamodb:*"
+                Effect: Allow
+                Resource: "*"
+              - 
+                Action: 
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Effect: Allow
+                Resource: "*"
+              - 
+                Action: 
+                  - "route53:*"
+                Effect: Allow
+                Resource: 
+                  - "*"
+            Version: "2012-10-17"
+          PolicyName: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, 'lambda-ddns-role' ] ]
+      RoleName: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, 'llambda-ddns-role' ] ]
+  ddnslambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: union.lambda_handler
+      FunctionName: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, 'lambda-ddns' ] ]
+      Description: Create A and PTR records for Private Hosted Zone for EC2 instance launches
+      Role: !GetAtt ddnslambdarole.Arn
+      Code:
+        S3Bucket: !Ref QSS3BucketName
+        S3Key: !Join [ "", [ !Ref QSS3KeyPrefix, '/submodules/lambda/union.py.zip' ] ]
+      Runtime: python2.7
+      Timeout: '30'
+  DdnsRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: trigger whenever CloudWatch detects a change to the state of an EC2 instance
+      Name: !Join [ "-", [ !Ref pProduct, !Ref pRegion, !Ref pEnvironment, 'ec2_lambda_ddns_rule' ] ]
+      EventPattern:
+        source:
+        - aws.ec2
+        detail-type:
+        - EC2 Instance State-change Notification
+        detail:
+          state:
+          - running
+          - shutting-down
+          - stopped
+      State: ENABLED
+      Targets:
+      - Arn:
+          Fn::GetAtt:
+          - ddnslambda
+          - Arn
+        Id: TargetFunctionV1
+  PermissionForEventsToInvokeLambda:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName:
+          Ref: ddnslambda
+        Action: lambda:InvokeFunction
+        Principal: events.amazonaws.com
+        SourceArn:
+          Fn::GetAtt:
+          - DdnsRule
+          - Arn
+Outputs:
+# Management Outputs
+    BastionInstanceID:
+      Condition: cIsPrimaryVPC
+      Value: !Ref rMgmtBastionInstance
+    BastionInstanceEIP:
+      Condition: cIsPrimaryVPC
+      Value: !Ref rEIPBastion
+    SecurityGroupDefault:
+      Value: !Ref rSecurityGroupDefault
+    SecurityGroupSSHFromMgmt:
+        Condition: cIsPrimaryVPC
+        Value: !Ref rSecurityGroupSSHFromMgmt
+# VPC Outputs
+    Vpcid:
+      Description: VPC ID
+      Value: !Ref rVPC
+    RouteTablePublicA:
+      Value: !Ref rRouteTablePublicA
+    RouteTablePublicB:
+      Value: !Ref rRouteTablePublicB
+    RouteTablePrivateA:
+      Value: !Ref rRouteTablePrivateA
+    RouteTablePrivateB:  
+      Value: !Ref rRouteTablePrivateB
+    SubnetApub001:
+      Condition: cSubnetApub001
+      Description: Public subnet a-pub-001
+      Value: !Ref rSubnetApub001
+    SubnetApub002:
+      Condition: cSubnetApub002
+      Description: Public subnet a-pub-002
+      Value: !Ref rSubnetApub002
+    SubnetApri001:
+      Condition: cSubnetApri001
+      Description: Private subnet a-pri-001
+      Value: !Ref rSubnetApri001
+    SubnetApri002:
+      Condition: cSubnetApri002
+      Description: Private subnet a-pri-002
+      Value: !Ref rSubnetApri002
+    SubnetApri003:
+      Condition: cSubnetApri003
+      Description: Private subnet a-pri-003
+      Value: !Ref rSubnetApri003
+    SubnetBpub001:
+      Condition: cSubnetBpub001
+      Description: Public subnet b-pub-001
+      Value: !Ref rSubnetBpub001
+    SubnetBpub002:
+      Condition: cSubnetApub002
+      Description: Public subnet b-pub-002
+      Value: !Ref rSubnetBpub002
+    SubnetBpri001:
+      Condition: cSubnetBpri001
+      Description: Private subnet b-pri-001
+      Value: !Ref rSubnetBpri001
+    SubnetBpri002:
+      Condition: cSubnetBpri002
+      Description: Private subnet b-pri-002
+      Value: !Ref rSubnetBpri002
+    SubnetBpri003:
+      Condition: cSubnetBpri003
+      Description: Private subnet b-pri-003
+      Value: !Ref rSubnetBpri003
+    SecurityGroupVpcNat:
+      Value: !Ref rSecurityGroupVpcNat
+    MgtPeeringConnection:
+      Condition: cIsNotPrimaryVPC
+      Value: !Ref rPeeringConnectionManagement

@@ -1,0 +1,886 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: Main Stack - top level stack. 
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: 'Please provide the following default parameter values:'
+      Parameters:
+      - pNotifyEmail
+      - pEC2KeyPairBastion
+      - pEC2KeyPair
+      - pSupportsConfig
+      - pRegionAZ1Name
+      - pRegionAZ2Name
+    - Label:
+        default: AWS S3 Configuration
+      Parameters:
+      - QSS3BucketName
+      - QSS3KeyPrefix
+    - Label:
+        default: VPC 1 (ops/management/transient) Required primary VPC
+      Parameters:
+      - pVPCTenancy
+      - pVpc1SgDebug
+      - pVpc1CIDR
+      - pVpc1snAZ1pub01CIDR
+      - pVpc1snAZ1pub02CIDR
+      - pVpc1snAZ1pri01CIDR
+      - pVpc1snAZ1pri02CIDR
+      - pVpc1snAZ1pri03CIDR
+      - pVpc1snAZ2pub01CIDR
+      - pVpc1snAZ2pub02CIDR
+      - pVpc1snAZ2pri01CIDR
+      - pVpc1snAZ2pri02CIDR
+      - pVpc1snAZ2pri03CIDR
+    - Label:
+        default: VPC 2 (optional)
+      Parameters:
+      - pVpc2SgDebug
+      - pVpc2CIDR
+      - pVpc2snAZ1pub01CIDR
+      - pVpc2snAZ1pub02CIDR
+      - pVpc2snAZ1pri01CIDR
+      - pVpc2snAZ1pri02CIDR
+      - pVpc2snAZ1pri03CIDR
+      - pVpc2snAZ2pub01CIDR
+      - pVpc2snAZ2pub02CIDR
+      - pVpc2snAZ2pri01CIDR
+      - pVpc2snAZ2pri02CIDR
+      - pVpc2snAZ2pri03CIDR
+    - Label:
+        default: VPC 3 (optional)
+      Parameters:
+      - pVpc3SgDebug
+      - pVpc3CIDR
+      - pVpc3snAZ1pub01CIDR
+      - pVpc3snAZ1pub02CIDR
+      - pVpc3snAZ1pri01CIDR
+      - pVpc3snAZ1pri02CIDR
+      - pVpc3snAZ1pri03CIDR
+      - pVpc3snAZ2pub01CIDR
+      - pVpc3snAZ2pub02CIDR
+      - pVpc3snAZ2pri01CIDR
+      - pVpc3snAZ2pri02CIDR
+      - pVpc3snAZ2pri03CIDR
+    ParameterLabels:
+      pNotifyEmail:
+        default: Notification Email Address
+      pEC2KeyPairBastion:
+        default: Existing SSH Key for the Bastion Instance
+      pEC2KeyPair:
+        default: Existing SSH Key for Other Instances
+      pSupportsConfig:
+        default: Support Config
+      pRegionAZ1Name:
+        default: First Availability Zone
+      pRegionAZ2Name:
+        default: Second Availability zone
+      pVPCTenancy:
+        default: Bastion instance tenancy
+      QSS3BucketName:
+        default: Quick Start S3 Bucket Name
+      QSS3KeyPrefix:
+        default: Quick Start S3 Key Prefix
+      pVpc1SgDebug:
+        default: Security Group Debug
+      pVpc2SgDebug:
+        default: Security Group Debug
+      pVpc3SgDebug:
+        default: Security Group Debug
+  Stack:
+    Value: 0
+  VersionDate:
+    Value: 20160518
+  Identifier:
+    Value: main
+  Input:
+    Description: Input of all required parameters in nested stacks
+  Output:
+    Description: N/A
+Parameters:
+  pNotifyEmail:
+    Description: Notification email address for security events (you will receive
+      a confirmation email)
+    Type: String
+    Default: tpotter@infiniticg.com
+  pEC2KeyPairBastion:
+    Description: The SSH key pair in your account to use for the bastion host login
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: infiniti-tpotter
+  pEC2KeyPair:
+    Description: The SSH key pair in your account to use for all other EC2 instance
+      logins
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: infiniti-tpotter
+  pSupportsConfig:
+    Description: 'Is AWS Config Rules already configured for this region? Use ''No''
+      if you are uncertain. AWS Config Rules is available in these regions: US East
+      (Virginia), US West (Oregon), EU West (Ireland), and EU Central (Frankfurt).
+      See AWS Config Management Console or Deployment Guide for details.'
+    AllowedValues:
+    - 'Yes'
+    - 'No'
+    Default: 'No'
+    Type: String
+  pRegionAZ1Name:
+    Description: Availability Zone 1
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-west-2b
+  pRegionAZ2Name:
+    Description: Availability Zone 2
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-west-2c
+  QSS3BucketName:
+    AllowedPattern: ^[0-9a-zA-Z]+([0-9a-zA-Z-.]*[0-9a-zA-Z])*$
+    ConstraintDescription: Quick Start bucket name can include numbers, lowercase
+      letters, uppercase letters, periods (.), and hyphens (-). It cannot start or
+      end with a hyphen (-).
+    Description: S3 bucket name for the Quick Start assets. Quick Start bucket name
+      can include numbers, lowercase letters, uppercase letters, and hyphens (-).
+      It cannot start or end with a hyphen (-).
+    Type: String
+  QSS3KeyPrefix:
+    AllowedPattern: ^[0-9a-zA-Z-]+(/[0-9a-zA-Z-]+)*$
+    ConstraintDescription: Quick Start key prefix can include numbers, lowercase letters,
+      uppercase letters, hyphens (-), and forward slash (/). It cannot start or end
+      with forward slash (/) because they are automatically appended.
+    Description: S3 key prefix for the Quick Start assets. Quick Start key prefix
+      can include numbers, lowercase letters, uppercase letters, hyphens (-), and
+      forward slash (/). It cannot start or end with forward slash (/) because they
+      are automatically appended.
+    Type: String
+# ##### VPC 1 ################################################
+  pVPCTenancy:
+    Description: Instance tenancy behavior for this VPC
+    Type: String
+    Default: default
+    AllowedValues:
+    - default
+    - dedicated
+  pVpc1SgDebug:
+    Description: Set to yes to open all ports between instances in default security group
+    Type: String
+    Default: "no"
+    AllowedValues:
+    - "no"
+    - "yes"
+  pVpc1CIDR:
+    Type: String
+    Default: ''
+    Description: VPC 1 CIDR
+# VPC 1 AZ 1 subnets
+  pVpc1snAZ1pub01CIDR: 
+    Type: String
+    Default: ''
+    Description: a-pub01 - VPC 1 public subnet 
+  pVpc1snAZ1pub02CIDR:
+    Type: String
+    Default: ''
+    Description: a-pub02 - VPC 1 public subnet 
+  pVpc1snAZ1pri01CIDR:
+    Type: String
+    Default: ''
+    Description: a-pri01 VPC 1 private subnet 
+  pVpc1snAZ1pri02CIDR:
+    Type: String
+    Default: ''
+    Description: a-pri02 - VPC 1 private subnet 
+  pVpc1snAZ1pri03CIDR:
+    Type: String
+    Default: ''
+    Description: a-pri03 - VPC 1 private subnet 
+# VPC 1 AZ 2 subnets
+  pVpc1snAZ2pub01CIDR:
+    Type: String
+    Default: ''
+    Description: b-pub01 - VPC 1 public subnet 
+  pVpc1snAZ2pub02CIDR:
+    Type: String
+    Default: ''
+    Description: b-pub02 - VPC 1 public subnet 
+  pVpc1snAZ2pri01CIDR:
+    Type: String
+    Default: ''
+    Description: b-pri01 - VPC 1 private subnet 
+  pVpc1snAZ2pri02CIDR:
+    Type: String
+    Default: ''
+    Description: b-pri02 - VPC 1 private subnet 
+  pVpc1snAZ2pri03CIDR:
+    Type: String
+    Default: ''
+    Description: b-pri03 - VPC 1 private subnet 
+# ##### VPC 2 ################################################
+  pVpc2SgDebug:
+    Description: Set to yes to open all ports between instances in default security group
+    Type: String
+    Default: "no"
+    AllowedValues:
+    - "no"
+    - "yes"
+  pVpc2CIDR:
+    Type: String
+    Default: ''
+    Description: VPC 2 CIDR
+# VPC 2 AZ 2 subnets
+  # AZ 1
+  pVpc2snAZ1pub01CIDR:
+    Type: String
+    Default: ''
+    Description: a-pub01 - VPC 2 public subnet 
+  pVpc2snAZ1pub02CIDR:
+    Type: String
+    Default: ''
+    Description: a-pub02 - VPC 2 public subnet 
+  pVpc2snAZ1pri01CIDR:
+    Type: String
+    Default: ''
+    Description: a-pri01 -VPC 2 private subnet 
+  pVpc2snAZ1pri02CIDR:
+    Type: String
+    Default: ''
+    Description: a-pri02 -VPC 2 private subnet 
+  pVpc2snAZ1pri03CIDR:
+    Type: String
+    Default: ''
+    Description: a-pri03 -VPC 2 private subnet 
+  # AZ 2
+  pVpc2snAZ2pub01CIDR:
+    Type: String
+    Default: ''
+    Description: b-pub01 - VPC 2 public subnet 
+  pVpc2snAZ2pub02CIDR:
+    Type: String
+    Default: ''
+    Description: b-pub02 -VPC 2 public subnet 
+  pVpc2snAZ2pri01CIDR:
+    Type: String
+    Default: ''
+    Description: b-pri01 -VPC 2 private subnet 
+  pVpc2snAZ2pri02CIDR:
+    Type: String
+    Default: ''
+    Description: b-pri02 -VPC 2 private subnet 
+  pVpc2snAZ2pri03CIDR:
+    Type: String
+    Default: ''
+    Description: b-pri03 - VPC 2 private subnet 
+# ##### VPC 3 ################################################
+  pVpc3SgDebug:
+    Description: Set to yes to open all ports between instances in default security group
+    Type: String
+    Default: "no"
+    AllowedValues:
+    - "no"
+    - "yes"
+  pVpc3CIDR:
+    Type: String
+    Default: ''
+    Description: VPC 3 CIDR
+# VPC 3 AZ 2 subnets
+  # AZ 1
+  pVpc3snAZ1pub01CIDR:
+    Type: String
+    Default: ''
+    Description: a-pub01 - VPC 3 public subnet 
+  pVpc3snAZ1pub02CIDR:
+    Type: String
+    Default: ''
+    Description: a-pub02 - VPC 3 public subnet 
+  pVpc3snAZ1pri01CIDR:
+    Type: String
+    Default: ''
+    Description: a-pri01 - VPC 3 private subnet 
+  pVpc3snAZ1pri02CIDR:
+    Type: String
+    Default: ''
+    Description: a-pri02 - VPC 3 private subnet 
+  pVpc3snAZ1pri03CIDR:
+    Type: String
+    Default: ''
+    Description: a-pri03 - VPC 3 private subnet 
+  # AZ 2
+  pVpc3snAZ2pub01CIDR:
+    Type: String
+    Default: ''
+    Description: b-pub01 - VPC 3 public subnet 
+  pVpc3snAZ2pub02CIDR:
+    Type: String
+    Default: ''
+    Description: b-pub02 - VPC 3 public subnet 
+  pVpc3snAZ2pri01CIDR:
+    Type: String
+    Default: ''
+    Description: b-pri01 - VPC 3 private subnet 
+  pVpc3snAZ2pri02CIDR:
+    Type: String
+    Default: ''
+    Description: b-pri02 - VPC 3 private subnet 
+  pVpc3snAZ2pri03CIDR:
+    Type: String
+    Default: ''
+    Description: b-pri03 - VPC 3 private subnet   
+Mappings:
+  AWSInfoRegionMap:
+    ap-northeast-1:
+      Partition: aws
+      QuickStartS3URL: https://s3.amazonaws.com
+      regionIata: hnd # Tokyo
+    ap-northeast-2:
+      Partition: aws
+      QuickStartS3URL: https://s3.amazonaws.com
+      regionIata: icn # Seoul
+    ap-south-1:
+      Partition: aws
+      QuickStartS3URL: https://s3.amazonaws.com
+      regionIata: bom # Mumbai
+    ap-southeast-1:
+      Partition: aws
+      QuickStartS3URL: https://s3.amazonaws.com
+      regionIata: sin # Singapore
+    ap-southeast-2:
+      Partition: aws
+      QuickStartS3URL: https://s3.amazonaws.com
+      regionIata: syd
+      locationDescription: Sydney
+    ca-central-1:
+      Partition: aws
+      QuickStartS3URL: https://s3.amazonaws.com
+      regionIata: yul # Canada
+    eu-central-1:
+      Partition: aws
+      QuickStartS3URL: https://s3.amazonaws.com
+      regionIata: fra # Frankfurt
+    eu-west-1:
+      Partition: aws
+      QuickStartS3URL: https://s3.amazonaws.com
+      regionIata: dub # Ireland      locationDescription: 
+    eu-west-2:
+      Partition: aws
+      QuickStartS3URL: https://s3.amazonaws.com
+      regionIata: yxu # London
+    sa-east-1:
+      Partition: aws
+      QuickStartS3URL: https://s3.amazonaws.com
+      regionIata: gru # SaoPaulo
+    us-east-1:
+      Partition: aws
+      QuickStartS3URL: https://s3.amazonaws.com
+      regionIata: iad # N.Virginia
+    us-east-2:
+      Partition: aws
+      QuickStartS3URL: https://s3.amazonaws.com
+      regionIata: cmh # Ohio
+    us-gov-west-1:
+      Partition: aws-us-gov
+      QuickStartS3URL: https://s3-us-gov-west-1.amazonaws.com
+    us-west-1:
+      Partition: aws
+      QuickStartS3URL: https://s3.amazonaws.com
+      regionIata: sfo #NorthernCalifornia
+    us-west-2:
+      Partition: aws
+      QuickStartS3URL: https://s3.amazonaws.com
+      regionIata: pdx # Oregon
+  CustomVariables:
+    vResourceEnvironmentTagKey:
+      Value: Environment
+    vResourceEnvironmentTagValue:
+      Value: development
+  RegionServiceSupport:
+    us-east-1:
+      ConfigRules: true
+      NatGateway: true
+      Glacier: true
+    us-east-2:
+      ConfigRules: true
+      NatGateway: true
+      Glacier: true
+    us-west-1:
+      ConfigRules: true
+      NatGateway: true
+      Glacier: true
+    us-west-2:
+      ConfigRules: true
+      NatGateway: true
+      Glacier: true
+    ca-central-1:
+      ConfigRules: false
+      NatGateway: true
+      Glacier: true
+    eu-central-1:
+      NatGateway: true
+      ConfigRules: true
+      Glacier: true
+    eu-west-1:
+      ConfigRules: true
+      NatGateway: true
+      Glacier: true
+    eu-west-2:
+      ConfigRules: false
+      NatGateway: true
+      Glacier: true
+    ap-northeast-1:
+      ConfigRules: true
+      NatGateway: true
+      Glacier: true
+    ap-northeast-2:
+      ConfigRules: true
+      NatGateway: true
+      Glacier: true
+    ap-south-1:
+      ConfigRules: false
+      NatGateway: true
+      Glacier: true
+    ap-southeast-1:
+      ConfigRules: true
+      NatGateway: true
+      Glacier: false
+    ap-southeast-2:
+      ConfigRules: true
+      NatGateway: true
+      Glacier: true
+    sa-east-1:
+      ConfigRules: false
+      NatGateway: true
+      Glacier: false
+    us-gov-west-1:
+      ConfigRules: false
+      NatGateway: false
+      Glacier: false
+  AWSAMIRegionMap:
+    AMI:
+      AMZNLINUXHVM: amzn-ami-hvm-2016.09.1.20170119-x86_64-gp2
+    ap-northeast-1:
+      AMZNLINUXHVM: ami-56d4ad31
+      InstanceType: m4.large
+      InstanceTypeDatabase: db.m4.large
+    ap-northeast-2:
+      AMZNLINUXHVM: ami-dac312b4
+      InstanceType: m4.large
+      InstanceTypeDatabase: db.m4.large
+    ap-south-1:
+      AMZNLINUXHVM: ami-f9daac96
+      InstanceType: m4.large
+      InstanceTypeDatabase: db.m4.large
+    ap-southeast-1:
+      AMZNLINUXHVM: ami-dc9339bf
+      InstanceType: m4.large
+      InstanceTypeDatabase: db.m4.large
+    ap-southeast-2:
+      AMZNLINUXHVM: ami-1c47407f
+      InstanceType: m4.large
+      InstanceTypeDatabase: db.m4.large
+    ca-central-1:
+      AMZNLINUXHVM: ami-ebed508f
+      InstanceType: m4.large
+      InstanceTypeDatabase: db.m4.large
+    eu-central-1:
+      AMZNLINUXHVM: ami-af0fc0c0
+      InstanceType: m4.large
+      InstanceTypeDatabase: db.m4.large
+    eu-west-1:
+      AMZNLINUXHVM: ami-70edb016
+      InstanceType: m4.large
+      InstanceTypeDatabase: db.m4.large
+    eu-west-2:
+      AMZNLINUXHVM: ami-f1949e95
+      InstanceType: m4.large
+      InstanceTypeDatabase: db.m4.large
+    sa-east-1:
+      AMZNLINUXHVM: ami-80086dec
+      InstanceType: m4.large
+      InstanceTypeDatabase: db.m3.large
+    us-east-1:
+      AMZNLINUXHVM: ami-0b33d91d
+      InstanceType: m4.large
+      InstanceTypeDatabase: db.m4.large
+    us-east-2:
+      AMZNLINUXHVM: ami-c55673a0
+      InstanceType: m4.large
+      InstanceTypeDatabase: db.m4.large
+    us-gov-west-1:
+      AMZNLINUXHVM: ami-ffa61d9e
+      InstanceType: m4.large
+      InstanceTypeDatabase: db.m3.large
+    us-west-1:
+      AMZNLINUXHVM: ami-165a0876
+      InstanceType: m4.large
+      InstanceTypeDatabase: db.m4.large
+    us-west-2:
+      AMZNLINUXHVM: ami-f173cc91
+      InstanceType: m4.large
+      InstanceTypeDatabase: db.m4.large
+Conditions:
+  cDisable: !Equals [ "1", "0" ]
+  cEnable: !Equals [ "0", "0" ]
+  cLoadConfigRulesTemplate:
+    !Equals
+    - !Ref pSupportsConfig
+    - 'Yes'
+  cLaunchAsDedicatedInstance:
+    !Equals
+    - !Ref pVPCTenancy
+    - dedicated
+  cLaunchVpc1: !Not [ !Equals [ !Ref pVpc1CIDR, '' ] ]
+  cLaunchVpc2: !Not [ !Equals [ !Ref pVpc2CIDR, '' ] ]
+  cLaunchVpc3: !Not [ !Equals [ !Ref pVpc3CIDR, '' ] ]
+Resources:
+  vpcMgt:
+    Type: AWS::CloudFormation::Stack
+    Condition: cLaunchVpc1
+    Properties:
+      TemplateURL:
+        !Sub
+        - ${QuickStartS3URL}/${QSS3BucketName}/${QSS3KeyPrefix}/submodules/templates/vpc.template
+        - QuickStartS3URL: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", QuickStartS3URL ]
+      Parameters:
+        pProduct: !Ref AWS::StackName
+        pRegion: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", regionIata ]
+        pVPCprimary: y
+        pRegionAZ1Name: !Ref pRegionAZ1Name
+        pRegionAZ2Name: !Ref pRegionAZ2Name
+        pBastionSSHCIDR: 0.0.0.0/0
+        pManagementCIDR: !Ref pVpc1CIDR
+        pVPCTenancy: !Ref pVPCTenancy
+        pEnvironment: mgt
+        pEC2KeyPair: !Ref pEC2KeyPair
+        pEC2KeyPairBastion: !Ref pEC2KeyPairBastion
+        pSupportsNatGateway: !FindInMap [ RegionServiceSupport, !Ref "AWS::Region", NatGateway ]
+        pNatAmi: !FindInMap [ AWSAMIRegionMap, !Ref "AWS::Region", AMZNLINUXHVM ]
+        pNatInstanceType: !FindInMap [ AWSAMIRegionMap, !Ref "AWS::Region", InstanceType ]
+        pBastionAmi: !FindInMap [ AWSAMIRegionMap, !Ref "AWS::Region", AMZNLINUXHVM ]
+        pBastionInstanceType:
+          !If
+          - cLaunchAsDedicatedInstance
+          - m4.large
+          - t2.small
+        QuickStartS3URL: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", QuickStartS3URL ]
+        QSS3BucketName: !Ref QSS3BucketName
+        QSS3KeyPrefix: !Ref QSS3KeyPrefix
+        # 
+        pVpcSgDebug: !Ref pVpc1SgDebug
+        pVpcCIDR: !Ref pVpc1CIDR
+        pSubnetApub001CIDR: !Ref pVpc1snAZ1pub01CIDR
+        pSubnetApub002CIDR: !Ref pVpc1snAZ1pub02CIDR
+        pSubnetApri001CIDR: !Ref pVpc1snAZ1pri01CIDR
+        pSubnetApri002CIDR: !Ref pVpc1snAZ1pri02CIDR
+        pSubnetApri003CIDR: !Ref pVpc1snAZ1pri03CIDR
+        pSubnetBpub001CIDR: !Ref pVpc1snAZ2pub01CIDR
+        pSubnetBpub002CIDR: !Ref pVpc1snAZ2pub02CIDR
+        pSubnetBpri001CIDR: !Ref pVpc1snAZ2pri01CIDR
+        pSubnetBpri002CIDR: !Ref pVpc1snAZ2pri02CIDR
+        pSubnetBpri003CIDR: !Ref pVpc1snAZ2pri03CIDR
+  vpcPilot:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: vpcMgt
+    Condition: cLaunchVpc2
+    Properties:
+      TemplateURL:
+        !Sub
+        - ${QuickStartS3URL}/${QSS3BucketName}/${QSS3KeyPrefix}/submodules/templates/vpc.template
+        - QuickStartS3URL: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", QuickStartS3URL ]
+      Parameters:
+        pProduct: !Ref AWS::StackName
+        pRegion: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", regionIata ]
+        pRegionAZ1Name: !Ref pRegionAZ1Name
+        pRegionAZ2Name: !Ref pRegionAZ2Name
+        pBastionSSHCIDR: 0.0.0.0/0
+        pManagementCIDR: !Ref pVpc1CIDR
+        pMgtVpcid: !GetAtt [ vpcMgt, Outputs.Vpcid ]
+        pMgtRouteTableApri: !GetAtt [ vpcMgt, Outputs.RouteTablePrivateA ]  
+        pMgtRouteTableBpri: !GetAtt [ vpcMgt, Outputs.RouteTablePrivateB ]
+        pMgtRouteTableApub: !GetAtt [ vpcMgt, Outputs.RouteTablePublicA ]
+        pMgtRouteTableBpub: !GetAtt [ vpcMgt, Outputs.RouteTablePublicB ]
+        pEnvironment: pilot
+        pEC2KeyPair: !Ref pEC2KeyPair
+        pEC2KeyPairBastion: !Ref pEC2KeyPairBastion
+        pSupportsNatGateway: !FindInMap [ RegionServiceSupport, !Ref "AWS::Region", NatGateway ]
+        pNatAmi: !FindInMap [ AWSAMIRegionMap, !Ref "AWS::Region", AMZNLINUXHVM ]
+        pNatInstanceType: !FindInMap [ AWSAMIRegionMap, !Ref "AWS::Region", InstanceType ]
+        pBastionAmi: !FindInMap [ AWSAMIRegionMap, !Ref "AWS::Region", AMZNLINUXHVM ]
+        QuickStartS3URL: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", QuickStartS3URL ]
+        QSS3BucketName: !Ref QSS3BucketName
+        QSS3KeyPrefix: !Ref QSS3KeyPrefix
+        pVpcSgDebug: !Ref pVpc2SgDebug
+        pVpcCIDR: !Ref pVpc2CIDR
+        pSubnetApub001CIDR: !Ref pVpc2snAZ1pub01CIDR
+        pSubnetApub002CIDR: !Ref pVpc2snAZ1pub02CIDR
+        pSubnetApri001CIDR: !Ref pVpc2snAZ1pri01CIDR
+        pSubnetApri002CIDR: !Ref pVpc2snAZ1pri02CIDR
+        pSubnetApri003CIDR: !Ref pVpc2snAZ1pri03CIDR
+        pSubnetBpub001CIDR: !Ref pVpc2snAZ2pub01CIDR
+        pSubnetBpub002CIDR: !Ref pVpc2snAZ2pub02CIDR
+        pSubnetBpri001CIDR: !Ref pVpc2snAZ2pri01CIDR
+        pSubnetBpri002CIDR: !Ref pVpc2snAZ2pri02CIDR
+        pSubnetBpri003CIDR: !Ref pVpc2snAZ2pri03CIDR
+  
+  vpcPilotApp:
+    Type: AWS::CloudFormation::Stack
+    Condition: cLaunchVpc2
+    DependsOn: vpcPilot
+    Properties:
+      TemplateURL:
+        !Sub
+        - ${QuickStartS3URL}/${QSS3BucketName}/${QSS3KeyPrefix}/templates/pilot.template
+        - QuickStartS3URL: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", QuickStartS3URL ]
+      TimeoutInMinutes: 30
+      Parameters:
+        pEnvironment: pilot
+        pProduct: !Ref AWS::StackName
+        pRegion: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", regionIata ]
+        pRegionAZ1Name: !Ref pRegionAZ1Name
+        pRegionAZ2Name: !Ref pRegionAZ2Name
+        pMgtCIDR: !Ref pVpc1CIDR
+        pMgtVpcid: !GetAtt [ vpcMgt, Outputs.Vpcid ]
+        pMgtRouteTableApub: !GetAtt [ vpcMgt, Outputs.RouteTablePublicA ]
+        pMgtRouteTableBpub: !GetAtt [ vpcMgt, Outputs.RouteTablePublicB ]
+        pMgtRouteTableApri: !GetAtt [ vpcMgt, Outputs.RouteTablePrivateA ] 
+        pMgtRouteTableBpri: !GetAtt [ vpcMgt, Outputs.RouteTablePrivateB ]
+        
+        pRouteTableApub: !GetAtt [ vpcPilot, Outputs.RouteTablePublicA ]
+        pRouteTableBpub: !GetAtt [ vpcPilot, Outputs.RouteTablePublicB ]
+        pRouteTableApri: !GetAtt [ vpcPilot, Outputs.RouteTablePrivateA ] 
+        pRouteTableBpri: !GetAtt [ vpcPilot, Outputs.RouteTablePrivateB ]
+        
+        pEC2KeyPair: !Ref pEC2KeyPair
+        pEC2KeyPairBastion: !Ref pEC2KeyPairBastion
+        pVPCTenancy: !Ref pVPCTenancy
+        QuickStartS3URL: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", QuickStartS3URL ]
+        QSS3BucketName: !Ref QSS3BucketName
+        QuickStartS3URL: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", QuickStartS3URL ]
+        QSS3KeyPrefix: !Ref QSS3KeyPrefix
+        pVpcCIDR: !Ref pVpc2CIDR
+        pVpcid: !GetAtt [ vpcPilot, Outputs.Vpcid ]
+        pSubnetApub001CIDR: !Ref pVpc2snAZ1pub01CIDR
+        pSubnetApub002CIDR: !Ref pVpc2snAZ1pub02CIDR
+        pSubnetApri001CIDR: !Ref pVpc2snAZ1pri01CIDR
+        pSubnetApri002CIDR: !Ref pVpc2snAZ1pri02CIDR
+        pSubnetApri003CIDR: !Ref pVpc2snAZ1pri03CIDR
+        pSubnetBpub001CIDR: !Ref pVpc2snAZ2pub01CIDR
+        pSubnetBpub002CIDR: !Ref pVpc2snAZ2pub02CIDR
+        pSubnetBpri001CIDR: !Ref pVpc2snAZ2pri01CIDR
+        pSubnetBpri002CIDR: !Ref pVpc2snAZ2pri02CIDR
+        pSubnetBpri003CIDR: !Ref pVpc2snAZ2pri03CIDR
+        pSubnetApub001: !GetAtt [ vpcPilot, Outputs.SubnetApub001 ]
+        pSubnetApub002: !GetAtt [ vpcPilot, Outputs.SubnetApub002 ]
+        pSubnetApri001: !GetAtt [ vpcPilot, Outputs.SubnetApri001 ]
+        pSubnetApri002: !GetAtt [ vpcPilot, Outputs.SubnetApri002 ]
+        pSubnetApri003: !GetAtt [ vpcPilot, Outputs.SubnetApri003 ]
+        pSubnetBpub001: !GetAtt [ vpcPilot, Outputs.SubnetBpub001 ]
+        pSubnetBpub002: !GetAtt [ vpcPilot, Outputs.SubnetBpub002 ]
+        pSubnetBpri001: !GetAtt [ vpcPilot, Outputs.SubnetBpri001 ]
+        pSubnetBpri002: !GetAtt [ vpcPilot, Outputs.SubnetBpri002 ]
+        pSubnetBpri003: !GetAtt [ vpcPilot, Outputs.SubnetBpri003 ]
+        pSecurityGroupDefault: !GetAtt [ vpcPilot, Outputs.SecurityGroupDefault ]
+  vpcPilotDb:
+    Type: AWS::CloudFormation::Stack
+    Condition: cLaunchVpc2
+    DependsOn: vpcPilot
+    Properties:
+      TemplateURL:
+        !Sub
+        - ${QuickStartS3URL}/${QSS3BucketName}/${QSS3KeyPrefix}/templates/pilot-db.template
+        - QuickStartS3URL: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", QuickStartS3URL ]
+      TimeoutInMinutes: 30
+      Parameters:
+        pEnvironment: pilot
+        pProduct: !Ref AWS::StackName
+        pRegion: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", regionIata ]
+        pRegionAZ1Name: !Ref pRegionAZ1Name
+        pRegionAZ2Name: !Ref pRegionAZ2Name
+        pMgtCIDR: !Ref pVpc1CIDR
+        pMgtVpcid: !GetAtt [ vpcMgt, Outputs.Vpcid ]
+        pMgtRouteTableApub: !GetAtt [ vpcMgt, Outputs.RouteTablePublicA ]
+        pMgtRouteTableBpub: !GetAtt [ vpcMgt, Outputs.RouteTablePublicB ]
+        pMgtRouteTableApri: !GetAtt [ vpcMgt, Outputs.RouteTablePrivateA ] 
+        pMgtRouteTableBpri: !GetAtt [ vpcMgt, Outputs.RouteTablePrivateB ]
+        
+        pRouteTableApub: !GetAtt [ vpcPilot, Outputs.RouteTablePublicA ]
+        pRouteTableBpub: !GetAtt [ vpcPilot, Outputs.RouteTablePublicB ]
+        pRouteTableApri: !GetAtt [ vpcPilot, Outputs.RouteTablePrivateA ] 
+        pRouteTableBpri: !GetAtt [ vpcPilot, Outputs.RouteTablePrivateB ]
+        
+        pEC2KeyPair: !Ref pEC2KeyPair
+        pEC2KeyPairBastion: !Ref pEC2KeyPairBastion
+        pVPCTenancy: !Ref pVPCTenancy
+        QuickStartS3URL: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", QuickStartS3URL ]
+        QSS3BucketName: !Ref QSS3BucketName
+        QuickStartS3URL: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", QuickStartS3URL ]
+        QSS3KeyPrefix: !Ref QSS3KeyPrefix
+        pVpcCIDR: !Ref pVpc2CIDR
+        pVpcid: !GetAtt [ vpcPilot, Outputs.Vpcid ]
+        pSubnetApub001CIDR: !Ref pVpc2snAZ1pub01CIDR
+        pSubnetApub002CIDR: !Ref pVpc2snAZ1pub02CIDR
+        pSubnetApri001CIDR: !Ref pVpc2snAZ1pri01CIDR
+        pSubnetApri002CIDR: !Ref pVpc2snAZ1pri02CIDR
+        pSubnetApri003CIDR: !Ref pVpc2snAZ1pri03CIDR
+        pSubnetBpub001CIDR: !Ref pVpc2snAZ2pub01CIDR
+        pSubnetBpub002CIDR: !Ref pVpc2snAZ2pub02CIDR
+        pSubnetBpri001CIDR: !Ref pVpc2snAZ2pri01CIDR
+        pSubnetBpri002CIDR: !Ref pVpc2snAZ2pri02CIDR
+        pSubnetBpri003CIDR: !Ref pVpc2snAZ2pri03CIDR
+        pSubnetApub001: !GetAtt [ vpcPilot, Outputs.SubnetApub001 ]
+        pSubnetApub002: !GetAtt [ vpcPilot, Outputs.SubnetApub002 ]
+        pSubnetApri001: !GetAtt [ vpcPilot, Outputs.SubnetApri001 ]
+        pSubnetApri002: !GetAtt [ vpcPilot, Outputs.SubnetApri002 ]
+        pSubnetApri003: !GetAtt [ vpcPilot, Outputs.SubnetApri003 ]
+        pSubnetBpub001: !GetAtt [ vpcPilot, Outputs.SubnetBpub001 ]
+        pSubnetBpub002: !GetAtt [ vpcPilot, Outputs.SubnetBpub002 ]
+        pSubnetBpri001: !GetAtt [ vpcPilot, Outputs.SubnetBpri001 ]
+        pSubnetBpri002: !GetAtt [ vpcPilot, Outputs.SubnetBpri002 ]
+        pSubnetBpri003: !GetAtt [ vpcPilot, Outputs.SubnetBpri003 ]
+        pSecurityGroupDefault: !GetAtt [ vpcPilot, Outputs.SecurityGroupDefault ]
+  vpcTest:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: vpcMgt
+    Condition: cLaunchVpc3
+    Properties:
+      TemplateURL:
+        !Sub
+        - ${QuickStartS3URL}/${QSS3BucketName}/${QSS3KeyPrefix}/submodules/templates/vpc.template
+        - QuickStartS3URL: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", QuickStartS3URL ]
+      Parameters:
+        pProduct: !Ref AWS::StackName
+        pRegion: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", regionIata ]
+        pRegionAZ1Name: !Ref pRegionAZ1Name
+        pRegionAZ2Name: !Ref pRegionAZ2Name
+        pBastionSSHCIDR: 0.0.0.0/0
+        pManagementCIDR: !Ref pVpc1CIDR
+        pMgtVpcid: !GetAtt [ vpcMgt, Outputs.Vpcid ]
+        pMgtRouteTableApri: !GetAtt [ vpcMgt, Outputs.RouteTablePrivateA ]  
+        pMgtRouteTableBpri: !GetAtt [ vpcMgt, Outputs.RouteTablePrivateB ]
+        pMgtRouteTableApub: !GetAtt [ vpcMgt, Outputs.RouteTablePublicA ]
+        pMgtRouteTableBpub: !GetAtt [ vpcMgt, Outputs.RouteTablePublicB ]
+        pEnvironment: test
+        pEC2KeyPair: !Ref pEC2KeyPair
+        pEC2KeyPairBastion: !Ref pEC2KeyPairBastion
+        pSupportsNatGateway: !FindInMap [ RegionServiceSupport, !Ref "AWS::Region", NatGateway ]
+        pNatAmi: !FindInMap [ AWSAMIRegionMap, !Ref "AWS::Region", AMZNLINUXHVM ]
+        pNatInstanceType: !FindInMap [ AWSAMIRegionMap, !Ref "AWS::Region", InstanceType ]
+        pBastionAmi: !FindInMap [ AWSAMIRegionMap, !Ref "AWS::Region", AMZNLINUXHVM ]
+        QuickStartS3URL: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", QuickStartS3URL ]
+        QSS3BucketName: !Ref QSS3BucketName
+        QSS3KeyPrefix: !Ref QSS3KeyPrefix 
+        pVpcSgDebug: !Ref pVpc3SgDebug
+        pVpcCIDR: !Ref pVpc3CIDR
+        pSubnetApub001CIDR: !Ref pVpc3snAZ1pub01CIDR
+        pSubnetApub002CIDR: !Ref pVpc3snAZ1pub02CIDR
+        pSubnetApri001CIDR: !Ref pVpc3snAZ1pri01CIDR
+        pSubnetApri002CIDR: !Ref pVpc3snAZ1pri02CIDR
+        pSubnetApri003CIDR: !Ref pVpc3snAZ1pri03CIDR
+        pSubnetBpub001CIDR: !Ref pVpc3snAZ2pub01CIDR
+        pSubnetBpub002CIDR: !Ref pVpc3snAZ2pub02CIDR
+        pSubnetBpri001CIDR: !Ref pVpc3snAZ2pri01CIDR
+        pSubnetBpri002CIDR: !Ref pVpc3snAZ2pri02CIDR
+        pSubnetBpri003CIDR: !Ref pVpc3snAZ2pri03CIDR
+  vpcTestApp:
+    Type: AWS::CloudFormation::Stack
+    Condition: cLaunchVpc3
+    DependsOn: vpcTest
+    Properties:
+      TemplateURL:
+        !Sub
+        - ${QuickStartS3URL}/${QSS3BucketName}/${QSS3KeyPrefix}/templates/test.template
+        - QuickStartS3URL: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", QuickStartS3URL ]
+      TimeoutInMinutes: 30
+      Parameters:
+        pEnvironment: test
+        pProduct: !Ref AWS::StackName
+        pRegion: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", regionIata ]
+        pRegionAZ1Name: !Ref pRegionAZ1Name
+        pRegionAZ2Name: !Ref pRegionAZ2Name
+        pMgtCIDR: !Ref pVpc1CIDR
+        pMgtVpcid: !GetAtt [ vpcMgt, Outputs.Vpcid ]
+        pMgtRouteTableApub: !GetAtt [ vpcMgt, Outputs.RouteTablePublicA ]
+        pMgtRouteTableBpub: !GetAtt [ vpcMgt, Outputs.RouteTablePublicB ]
+        pMgtRouteTableApri: !GetAtt [ vpcMgt, Outputs.RouteTablePrivateA ] 
+        pMgtRouteTableBpri: !GetAtt [ vpcMgt, Outputs.RouteTablePrivateB ]
+        pEC2KeyPair: !Ref pEC2KeyPair
+        pEC2KeyPairBastion: !Ref pEC2KeyPairBastion
+        pVPCTenancy: !Ref pVPCTenancy
+        QuickStartS3URL: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", QuickStartS3URL ]
+        QSS3BucketName: !Ref QSS3BucketName
+        QuickStartS3URL: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", QuickStartS3URL ]
+        QSS3KeyPrefix: !Ref QSS3KeyPrefix
+        pVpcCIDR: !Ref pVpc3CIDR
+        pVpcid: !GetAtt [ vpcTest, Outputs.Vpcid ]
+        pSubnetApub001CIDR: !Ref pVpc3snAZ1pub01CIDR
+        pSubnetApub002CIDR: !Ref pVpc3snAZ1pub02CIDR
+        pSubnetApri001CIDR: !Ref pVpc3snAZ1pri01CIDR
+        pSubnetApri002CIDR: !Ref pVpc3snAZ1pri02CIDR
+        pSubnetApri003CIDR: !Ref pVpc3snAZ1pri03CIDR
+        pSubnetBpub001CIDR: !Ref pVpc3snAZ2pub01CIDR
+        pSubnetBpub002CIDR: !Ref pVpc3snAZ2pub02CIDR
+        pSubnetBpri001CIDR: !Ref pVpc3snAZ2pri01CIDR
+        pSubnetBpri002CIDR: !Ref pVpc3snAZ2pri02CIDR
+        pSubnetBpri003CIDR: !Ref pVpc3snAZ2pri03CIDR
+        pSecurityGroupDefault: !GetAtt [ vpcPilot, Outputs.SecurityGroupDefault ]
+  mainConfigIam:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL:
+        !Sub
+        - ${QuickStartS3URL}/${QSS3BucketName}/${QSS3KeyPrefix}/submodules/templates/iam.template
+        - QuickStartS3URL: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", QuickStartS3URL ]
+      TimeoutInMinutes: 20
+      Parameters:
+          pProduct: !Ref AWS::StackName
+          pRegion: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", regionIata ]
+  mainConfigLogging:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL:
+        !Sub
+        - ${QuickStartS3URL}/${QSS3BucketName}/${QSS3KeyPrefix}/submodules/templates/logging.template
+        - QuickStartS3URL: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", QuickStartS3URL ]
+      TimeoutInMinutes: 20
+      Parameters:
+        pNotifyEmail: !Ref pNotifyEmail
+        pSupportsGlacier: !FindInMap [ RegionServiceSupport, !Ref "AWS::Region", Glacier ]
+        pProduct: !Ref AWS::StackName
+        pRegion: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", regionIata ]
+  mainConfigConfigRules:
+    Type: AWS::CloudFormation::Stack
+    Condition: cLoadConfigRulesTemplate
+    DependsOn:
+    - mainConfigIam
+    # - vpcProduction
+    - vpcMgt
+    - mainConfigLogging
+    Properties:
+      TemplateURL:
+        !Sub
+        - ${QuickStartS3URL}/${QSS3BucketName}/${QSS3KeyPrefix}/submodules/templates/config-rules.template
+        - QuickStartS3URL: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", QuickStartS3URL ]
+      TimeoutInMinutes: 20
+      Parameters:
+        pRequiredTagKey: !FindInMap [ CustomVariables, vResourceEnvironmentTagKey, Value ]
+        pProduct: !Ref AWS::StackName
+        pRegion: !FindInMap [ AWSInfoRegionMap, !Ref "AWS::Region", regionIata ]
+Outputs:
+  TemplateType:
+    Value: Multi tier multi peepred VPC templates.
+  TemplateVersion:
+    Value: 2.0
+  Region:
+    Description: Application region abbreviation
+    Value:
+      !FindInMap
+        - AWSInfoRegionMap
+        - !Ref AWS::Region
+        - regionIata
+  BastionIP:
+    Condition: cLaunchVpc1
+    Description: Use this IP via SSH to connect to Bastion Instance
+    Value: !GetAtt [ vpcMgt, Outputs.BastionInstanceEIP ]
+  QSS3BucketName:
+    Value: !Ref QSS3BucketName
+  QSSKeyPrefix:
+    Value: !Ref QSS3KeyPrefix  
+  Help:
+    Description: For assistance or questions please email tpotter@infiniticg.com
+    Value: ''
+...
